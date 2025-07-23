@@ -1,0 +1,224 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+
+// Schema validation for distribution update
+const updateDistributionSchema = z.object({
+  noteNumber: z.string().min(1, "Note number is required").optional(),
+  itemName: z.string().min(1, "Item name is required").optional(),
+  quantity: z.number().min(1, "Quantity must be at least 1").optional(),
+  unit: z.string().min(1, "Unit is required").optional(),
+  staffName: z.string().min(1, "Staff name is required").optional(),
+  department: z.string().min(1, "Department is required").optional(),
+  distributionDate: z.string().transform((val) => new Date(val)).optional(),
+  purpose: z.string().min(1, "Purpose is required").optional(),
+  notes: z.string().optional(),
+})
+
+// GET /api/distribution/[id] - Get specific distribution
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const distribution = await prisma.distribution.findUnique({
+      where: { id: params.id },
+      include: {
+        distributedBy: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          },
+        },
+        item: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            stock: true,
+          },
+        },
+      },
+    })
+
+    if (!distribution) {
+      return NextResponse.json(
+        { error: "Distribution not found" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(distribution)
+  } catch (error) {
+    console.error("Error fetching distribution:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch distribution" },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/distribution/[id] - Update distribution
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const validatedData = updateDistributionSchema.parse(body)
+
+    // Check if distribution exists
+    const existingDistribution = await prisma.distribution.findUnique({
+      where: { id: params.id },
+      include: { item: true },
+    })
+
+    if (!existingDistribution) {
+      return NextResponse.json(
+        { error: "Distribution not found" },
+        { status: 404 }
+      )
+    }
+
+    // If note number is being updated, check for uniqueness
+    if (validatedData.noteNumber && validatedData.noteNumber !== existingDistribution.noteNumber) {
+      const noteExists = await prisma.distribution.findUnique({
+        where: { noteNumber: validatedData.noteNumber },
+      })
+
+      if (noteExists) {
+        return NextResponse.json(
+          { error: "Note number already exists" },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Update distribution
+    const updatedDistribution = await prisma.distribution.update({
+      where: { id: params.id },
+      data: validatedData,
+      include: {
+        distributedBy: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          },
+        },
+        item: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            stock: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(updatedDistribution)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Validation failed", details: error.errors },
+        { status: 400 }
+      )
+    }
+
+    console.error("Error updating distribution:", error)
+    return NextResponse.json(
+      { error: "Failed to update distribution" },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE /api/distribution/[id] - Delete distribution
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Only administrators can delete distributions
+    if (session.user.role !== "ADMINISTRATOR") {
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 }
+      )
+    }
+
+    // Check if distribution exists
+    const existingDistribution = await prisma.distribution.findUnique({
+      where: { id: params.id },
+      include: { item: true },
+    })
+
+    if (!existingDistribution) {
+      return NextResponse.json(
+        { error: "Distribution not found" },
+        { status: 404 }
+      )
+    }
+
+    // Delete distribution and potentially restore stock in a transaction
+    await prisma.$transaction(async (tx) => {
+      // If linked to inventory item, restore stock
+      if (existingDistribution.itemId && existingDistribution.item) {
+        await tx.inventoryItem.update({
+          where: { id: existingDistribution.itemId },
+          data: {
+            stock: {
+              increment: existingDistribution.quantity,
+            },
+          },
+        })
+
+        // Create stock transaction record for the restoration
+        await tx.stockTransaction.create({
+          data: {
+            type: "IN",
+            quantity: existingDistribution.quantity,
+            description: `Stock restored from deleted distribution - ${existingDistribution.noteNumber}`,
+            itemId: existingDistribution.itemId,
+            userId: session.user.id,
+          },
+        })
+      }
+
+      // Delete the distribution
+      await tx.distribution.delete({
+        where: { id: params.id },
+      })
+    })
+
+    return NextResponse.json(
+      { message: "Distribution deleted successfully" },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error("Error deleting distribution:", error)
+    return NextResponse.json(
+      { error: "Failed to delete distribution" },
+      { status: 500 }
+    )
+  }
+}

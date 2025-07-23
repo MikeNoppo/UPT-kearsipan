@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,10 +18,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, TrendingDown, User, Package, Search, AlertTriangle } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { 
+  Plus, 
+  Trash2, 
+  Edit, 
+  Loader2, 
+  Search, 
+  FileText, 
+  Package,
+  Filter,
+  Calendar
+} from "lucide-react"
 
 interface Distribution {
   id: string
@@ -31,129 +44,327 @@ interface Distribution {
   department: string
   distributionDate: string
   purpose: string
-  distributedBy: string
-  notes: string
+  notes?: string
+  createdAt: string
+  distributedBy: {
+    id: string
+    name: string
+    username: string
+  }
+  item?: {
+    id: string
+    name: string
+    category: string
+    stock: number
+  }
+}
+
+interface DistributionStats {
+  totalDistributions: number
+  recentDistributions: number
+  totalQuantityDistributed: number
+  departmentStats: Array<{
+    department: string
+    count: number
+    totalQuantity: number
+  }>
+  topDistributedItems: Array<{
+    itemName: string
+    count: number
+    totalQuantity: number
+  }>
 }
 
 interface InventoryItem {
   id: string
   name: string
-  stock: number
+  category: string
   unit: string
-  minStock: number
+  stock: number
 }
 
 export default function DistributionPage() {
-  const [distributions, setDistributions] = useState<Distribution[]>([
-    {
-      id: "1",
-      noteNumber: "NPB001",
-      itemName: "Kertas HVS A4",
-      quantity: 2,
-      unit: "Rim",
-      staffName: "Budi Santoso",
-      department: "Administrasi",
-      distributionDate: "2024-01-15",
-      purpose: "Kebutuhan operasional harian",
-      distributedBy: "Staff Tata Usaha",
-      notes: "Pengambilan rutin",
-    },
-    {
-      id: "2",
-      noteNumber: "NPB002",
-      itemName: "Tinta Printer Canon",
-      quantity: 1,
-      unit: "Unit",
-      staffName: "Sari Dewi",
-      department: "Kearsipan",
-      distributionDate: "2024-01-14",
-      purpose: "Printer rusak, perlu ganti tinta",
-      distributedBy: "Staff Tata Usaha",
-      notes: "Urgent",
-    },
-  ])
-
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: "1", name: "Kertas HVS A4", stock: 23, unit: "Rim", minStock: 10 },
-    { id: "2", name: "Tinta Printer Canon", stock: 7, unit: "Unit", minStock: 5 },
-    { id: "3", name: "Stapler Besar", stock: 8, unit: "Unit", minStock: 3 },
-  ])
-
-  const [searchTerm, setSearchTerm] = useState("")
+  const { data: session, status } = useSession()
+  const [distributions, setDistributions] = useState<Distribution[]>([])
+  const [distributionStats, setDistributionStats] = useState<DistributionStats | null>(null)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [editingDistribution, setEditingDistribution] = useState<Distribution | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [departmentFilter, setDepartmentFilter] = useState("all")
+  const [dateRange, setDateRange] = useState({ start: "", end: "" })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const router = useRouter()
+  const { toast } = useToast()
 
   const [newDistribution, setNewDistribution] = useState({
     noteNumber: "",
     itemName: "",
-    quantity: 0,
+    quantity: 1,
     unit: "",
     staffName: "",
     department: "",
-    distributionDate: "",
+    distributionDate: new Date().toISOString().split('T')[0],
     purpose: "",
     notes: "",
+    itemId: "",
   })
 
-  const filteredDistributions = distributions.filter(
-    (distribution) =>
-      distribution.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      distribution.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      distribution.noteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      distribution.department.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const fetchDistributions = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: "10",
+        ...(searchTerm && { search: searchTerm }),
+        ...(departmentFilter && departmentFilter !== "all" && { department: departmentFilter }),
+        ...(dateRange.start && { startDate: dateRange.start }),
+        ...(dateRange.end && { endDate: dateRange.end }),
+      })
 
-  const availableItems = inventory.filter((item) => item.stock > 0)
+      const response = await fetch(`/api/distribution?${params}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch distributions")
+      }
+      const data = await response.json()
+      setDistributions(data.distributions)
+      setTotalPages(data.pagination.pages)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch distributions",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, searchTerm, departmentFilter, dateRange, toast])
 
-  const handleAddDistribution = () => {
-    const distribution: Distribution = {
-      id: Date.now().toString(),
-      ...newDistribution,
-      distributedBy: "Staff Tata Usaha", // In real app, get from current user
+  const fetchDistributionStats = useCallback(async () => {
+    try {
+      const response = await fetch("/api/distribution/stats?period=month")
+      if (!response.ok) {
+        throw new Error("Failed to fetch distribution statistics")
+      }
+      const data = await response.json()
+      setDistributionStats(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch distribution statistics",
+        variant: "destructive",
+      })
+    }
+  }, [toast])
+
+  const fetchInventoryItems = useCallback(async () => {
+    try {
+      const response = await fetch("/api/inventory")
+      if (!response.ok) {
+        throw new Error("Failed to fetch inventory items")
+      }
+      const data = await response.json()
+      setInventoryItems(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch inventory items",
+        variant: "destructive",
+      })
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (status === "loading") return
+
+    if (!session) {
+      router.push("/auth/signin")
+      return
     }
 
-    setDistributions([...distributions, distribution])
+    fetchDistributions()
+    fetchDistributionStats()
+    fetchInventoryItems()
+  }, [session, status, router, fetchDistributions, fetchDistributionStats, fetchInventoryItems])
 
-    // Update inventory stock
-    setInventory(
-      inventory.map((item) =>
-        item.name === newDistribution.itemName
-          ? { ...item, stock: Math.max(0, item.stock - newDistribution.quantity) }
-          : item,
-      ),
-    )
+  const handleAddDistribution = async () => {
+    if (!newDistribution.noteNumber || !newDistribution.itemName || !newDistribution.staffName || 
+        !newDistribution.department || !newDistribution.purpose) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
 
-    setNewDistribution({
-      noteNumber: "",
-      itemName: "",
-      quantity: 0,
-      unit: "",
-      staffName: "",
-      department: "",
-      distributionDate: "",
-      purpose: "",
-      notes: "",
-    })
-    setIsAddDialogOpen(false)
+    setIsSubmitting(true)
+    try {
+      const response = await fetch("/api/distribution", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...newDistribution,
+          distributionDate: new Date(newDistribution.distributionDate).toISOString(),
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to create distribution")
+      }
+
+      const createdDistribution = await response.json()
+      setDistributions([createdDistribution, ...distributions])
+      setNewDistribution({
+        noteNumber: "",
+        itemName: "",
+        quantity: 1,
+        unit: "",
+        staffName: "",
+        department: "",
+        distributionDate: new Date().toISOString().split('T')[0],
+        purpose: "",
+        notes: "",
+        itemId: "",
+      })
+      setIsAddDialogOpen(false)
+      await fetchDistributionStats()
+      
+      toast({
+        title: "Success",
+        description: "Distribution created successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create distribution",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleItemSelect = (itemName: string) => {
-    const selectedItem = inventory.find((item) => item.name === itemName)
-    if (selectedItem) {
-      setNewDistribution({
-        ...newDistribution,
-        itemName,
-        unit: selectedItem.unit,
+  const handleEditDistribution = async () => {
+    if (!editingDistribution) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/distribution/${editingDistribution.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          noteNumber: editingDistribution.noteNumber,
+          itemName: editingDistribution.itemName,
+          quantity: editingDistribution.quantity,
+          unit: editingDistribution.unit,
+          staffName: editingDistribution.staffName,
+          department: editingDistribution.department,
+          distributionDate: new Date(editingDistribution.distributionDate).toISOString(),
+          purpose: editingDistribution.purpose,
+          notes: editingDistribution.notes,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update distribution")
+      }
+
+      const updatedDistribution = await response.json()
+      setDistributions(distributions.map((dist) => 
+        dist.id === updatedDistribution.id ? updatedDistribution : dist
+      ))
+      setEditingDistribution(null)
+      await fetchDistributionStats()
+      
+      toast({
+        title: "Success",
+        description: "Distribution updated successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update distribution",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteDistribution = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this distribution? This will restore the items to inventory.")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/distribution/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete distribution")
+      }
+
+      setDistributions(distributions.filter((dist) => dist.id !== id))
+      await fetchDistributionStats()
+      
+      toast({
+        title: "Success",
+        description: "Distribution deleted successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete distribution",
+        variant: "destructive",
       })
     }
   }
 
-  const getStockStatus = (item: InventoryItem) => {
-    if (item.stock === 0) {
-      return <Badge variant="destructive">Habis</Badge>
-    } else if (item.stock <= item.minStock) {
-      return <Badge variant="secondary">Rendah</Badge>
+  const handleItemSelection = (itemId: string) => {
+    const selectedItem = inventoryItems.find(item => item.id === itemId)
+    if (selectedItem) {
+      setNewDistribution(prev => ({
+        ...prev,
+        itemId,
+        itemName: selectedItem.name,
+        unit: selectedItem.unit,
+      }))
     }
-    return <Badge variant="default">Normal</Badge>
+  }
+
+  const handleSearch = () => {
+    setCurrentPage(1)
+    fetchDistributions()
+  }
+
+  const resetFilters = () => {
+    setSearchTerm("")
+    setDepartmentFilter("all")
+    setDateRange({ start: "", end: "" })
+    setCurrentPage(1)
+  }
+
+  const departments = [...new Set(distributions.map(d => d.department))].filter(Boolean)
+
+  if (status === "loading" || loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -162,231 +373,456 @@ export default function DistributionPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Distribusi Barang</h1>
-            <p className="text-muted-foreground">Catat pengambilan barang oleh staf berdasarkan nota pengambilan</p>
+            <p className="text-muted-foreground">Kelola distribusi barang inventaris</p>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Catat Distribusi
+                Tambah Distribusi
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Catat Distribusi Barang</DialogTitle>
-                <DialogDescription>
-                  Masukkan detail pengambilan barang berdasarkan nota pengambilan barang.
-                </DialogDescription>
+                <DialogTitle>Tambah Distribusi Baru</DialogTitle>
+                <DialogDescription>Buat catatan distribusi barang baru</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="noteNumber">Nomor Nota Pengambilan</Label>
+                    <Label htmlFor="noteNumber">Nomor Nota *</Label>
                     <Input
                       id="noteNumber"
                       value={newDistribution.noteNumber}
                       onChange={(e) => setNewDistribution({ ...newDistribution, noteNumber: e.target.value })}
-                      placeholder="NPB001"
+                      disabled={isSubmitting}
+                      placeholder="DST-001"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="distributionDate">Tanggal Distribusi</Label>
+                    <Label htmlFor="distributionDate">Tanggal Distribusi *</Label>
                     <Input
                       id="distributionDate"
                       type="date"
                       value={newDistribution.distributionDate}
                       onChange={(e) => setNewDistribution({ ...newDistribution, distributionDate: e.target.value })}
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
+
                 <div className="grid gap-2">
-                  <Label>Nama Barang</Label>
-                  <Select value={newDistribution.itemName} onValueChange={handleItemSelect}>
+                  <Label>Pilih dari Inventaris (Opsional)</Label>
+                  <Select
+                    value={newDistribution.itemId}
+                    onValueChange={handleItemSelection}
+                    disabled={isSubmitting}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Pilih barang yang tersedia" />
+                      <SelectValue placeholder="Pilih barang dari inventaris..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableItems.map((item) => (
-                        <SelectItem key={item.id} value={item.name}>
-                          {item.name} (Stok: {item.stock} {item.unit})
+                      {inventoryItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} - {item.category} (Stok: {item.stock} {item.unit})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="quantity">Jumlah Diambil</Label>
+                    <Label htmlFor="itemName">Nama Barang *</Label>
                     <Input
-                      id="quantity"
-                      type="number"
-                      value={newDistribution.quantity}
-                      onChange={(e) =>
-                        setNewDistribution({
-                          ...newDistribution,
-                          quantity: Number.parseInt(e.target.value) || 0,
-                        })
-                      }
+                      id="itemName"
+                      value={newDistribution.itemName}
+                      onChange={(e) => setNewDistribution({ ...newDistribution, itemName: e.target.value })}
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="unit">Satuan</Label>
-                    <Input id="unit" value={newDistribution.unit} disabled />
+                    <Label htmlFor="unit">Satuan *</Label>
+                    <Input
+                      id="unit"
+                      value={newDistribution.unit}
+                      onChange={(e) => setNewDistribution({ ...newDistribution, unit: e.target.value })}
+                      disabled={isSubmitting}
+                      placeholder="pcs, box, dll"
+                    />
                   </div>
                 </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="quantity">Jumlah *</Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    value={newDistribution.quantity}
+                    onChange={(e) => setNewDistribution({ ...newDistribution, quantity: parseInt(e.target.value) || 1 })}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="staffName">Nama Staf Pengambil</Label>
+                    <Label htmlFor="staffName">Nama Staff Penerima *</Label>
                     <Input
                       id="staffName"
                       value={newDistribution.staffName}
                       onChange={(e) => setNewDistribution({ ...newDistribution, staffName: e.target.value })}
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="department">Bagian/Unit</Label>
+                    <Label htmlFor="department">Departemen *</Label>
                     <Input
                       id="department"
                       value={newDistribution.department}
                       onChange={(e) => setNewDistribution({ ...newDistribution, department: e.target.value })}
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
+
                 <div className="grid gap-2">
-                  <Label htmlFor="purpose">Tujuan Penggunaan</Label>
+                  <Label htmlFor="purpose">Tujuan Penggunaan *</Label>
                   <Textarea
                     id="purpose"
                     value={newDistribution.purpose}
                     onChange={(e) => setNewDistribution({ ...newDistribution, purpose: e.target.value })}
-                    placeholder="Jelaskan tujuan penggunaan barang"
+                    disabled={isSubmitting}
+                    placeholder="Describe the purpose of this distribution"
                   />
                 </div>
+
                 <div className="grid gap-2">
-                  <Label htmlFor="notes">Catatan</Label>
+                  <Label htmlFor="notes">Catatan (Opsional)</Label>
                   <Textarea
                     id="notes"
                     value={newDistribution.notes}
                     onChange={(e) => setNewDistribution({ ...newDistribution, notes: e.target.value })}
-                    placeholder="Catatan tambahan"
+                    disabled={isSubmitting}
+                    placeholder="Additional notes..."
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddDistribution}>Simpan Distribusi</Button>
+                <Button onClick={handleAddDistribution} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Tambah Distribusi"
+                  )}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* Statistics Cards */}
+        <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Distribusi</CardTitle>
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{distributions.length}</div>
+              <div className="text-2xl font-bold">{distributionStats?.totalDistributions || 0}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Bulan Ini</CardTitle>
-              <Package className="h-4 w-4 text-blue-500" />
+              <CardTitle className="text-sm font-medium">Distribusi Bulan Ini</CardTitle>
+              <Calendar className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {distributions.filter((d) => new Date(d.distributionDate).getMonth() === new Date().getMonth()).length}
+              <div className="text-2xl font-bold">{distributionStats?.recentDistributions || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Barang Terdistribusi</CardTitle>
+              <Package className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{distributionStats?.totalQuantityDistributed || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Filter Distribusi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label>Pencarian</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Cari nomor nota, barang, staff..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <Button variant="outline" size="icon" onClick={handleSearch}>
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Staf Aktif</CardTitle>
-              <User className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{new Set(distributions.map((d) => d.staffName)).size}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stok Rendah</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{inventory.filter((item) => item.stock <= item.minStock).length}</div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="space-y-2">
+                <Label>Departemen</Label>
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Semua departemen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua departemen</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tanggal Mulai</Label>
+                <Input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tanggal Selesai</Label>
+                <Input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={resetFilters}>
+                <Filter className="mr-2 h-4 w-4" />
+                Reset Filter
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="flex items-center space-x-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Cari distribusi barang..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat Distribusi</CardTitle>
-              <CardDescription>Catatan pengambilan barang oleh staf</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nota</TableHead>
-                    <TableHead>Barang</TableHead>
-                    <TableHead>Jumlah</TableHead>
-                    <TableHead>Staf</TableHead>
-                    <TableHead>Tanggal</TableHead>
+        {/* Distributions Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Daftar Distribusi</CardTitle>
+            <CardDescription>Kelola semua catatan distribusi barang</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nomor Nota</TableHead>
+                  <TableHead>Barang</TableHead>
+                  <TableHead>Jumlah</TableHead>
+                  <TableHead>Staff Penerima</TableHead>
+                  <TableHead>Departemen</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Didistribusi Oleh</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {distributions.map((distribution) => (
+                  <TableRow key={distribution.id}>
+                    <TableCell className="font-medium">{distribution.noteNumber}</TableCell>
+                    <TableCell>{distribution.itemName}</TableCell>
+                    <TableCell>{distribution.quantity} {distribution.unit}</TableCell>
+                    <TableCell>{distribution.staffName}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{distribution.department}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(distribution.distributionDate).toLocaleDateString("id-ID")}
+                    </TableCell>
+                    <TableCell>{distribution.distributedBy.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setEditingDistribution({ ...distribution })}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {session?.user.role === "ADMINISTRATOR" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteDistribution(distribution.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDistributions.slice(0, 5).map((distribution) => (
-                    <TableRow key={distribution.id}>
-                      <TableCell className="font-medium">{distribution.noteNumber}</TableCell>
-                      <TableCell>{distribution.itemName}</TableCell>
-                      <TableCell>
-                        {distribution.quantity} {distribution.unit}
-                      </TableCell>
-                      <TableCell>{distribution.staffName}</TableCell>
-                      <TableCell>{new Date(distribution.distributionDate).toLocaleDateString("id-ID")}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Status Stok Inventaris</CardTitle>
-              <CardDescription>Monitoring stok barang yang tersedia</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {inventory.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Stok: {item.stock} {item.unit} | Min: {item.minStock} {item.unit}
-                      </p>
-                    </div>
-                    {getStockStatus(item)}
-                  </div>
                 ))}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                  Halaman {currentPage} dari {totalPages}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingDistribution} onOpenChange={() => setEditingDistribution(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Distribusi</DialogTitle>
+              <DialogDescription>Ubah informasi distribusi barang</DialogDescription>
+            </DialogHeader>
+            {editingDistribution && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-noteNumber">Nomor Nota</Label>
+                    <Input
+                      id="edit-noteNumber"
+                      value={editingDistribution.noteNumber}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, noteNumber: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-distributionDate">Tanggal Distribusi</Label>
+                    <Input
+                      id="edit-distributionDate"
+                      type="date"
+                      value={editingDistribution.distributionDate.split('T')[0]}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, distributionDate: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-itemName">Nama Barang</Label>
+                    <Input
+                      id="edit-itemName"
+                      value={editingDistribution.itemName}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, itemName: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-unit">Satuan</Label>
+                    <Input
+                      id="edit-unit"
+                      value={editingDistribution.unit}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, unit: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-quantity">Jumlah</Label>
+                  <Input
+                    id="edit-quantity"
+                    type="number"
+                    min="1"
+                    value={editingDistribution.quantity}
+                    onChange={(e) => setEditingDistribution({ ...editingDistribution, quantity: parseInt(e.target.value) || 1 })}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-staffName">Nama Staff Penerima</Label>
+                    <Input
+                      id="edit-staffName"
+                      value={editingDistribution.staffName}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, staffName: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-department">Departemen</Label>
+                    <Input
+                      id="edit-department"
+                      value={editingDistribution.department}
+                      onChange={(e) => setEditingDistribution({ ...editingDistribution, department: e.target.value })}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-purpose">Tujuan Penggunaan</Label>
+                  <Textarea
+                    id="edit-purpose"
+                    value={editingDistribution.purpose}
+                    onChange={(e) => setEditingDistribution({ ...editingDistribution, purpose: e.target.value })}
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-notes">Catatan</Label>
+                  <Textarea
+                    id="edit-notes"
+                    value={editingDistribution.notes || ""}
+                    onChange={(e) => setEditingDistribution({ ...editingDistribution, notes: e.target.value })}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={handleEditDistribution} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Simpan Perubahan"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )
