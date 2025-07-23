@@ -310,7 +310,7 @@ export default function PurchaseRequestsPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredRequests.length}</div>
+              <div className="text-xl font-bold">{filteredRequests.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -319,7 +319,7 @@ export default function PurchaseRequestsPage() {
               <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "PENDING").length}</div>
+              <div className="text-xl font-bold">{filteredRequests.filter((r) => r.status === "PENDING").length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -328,7 +328,7 @@ export default function PurchaseRequestsPage() {
               <Check className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "APPROVED").length}</div>
+              <div className="text-xl font-bold">{filteredRequests.filter((r) => r.status === "APPROVED").length}</div>
             </CardContent>
           </Card>
         </div>

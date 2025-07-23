@@ -439,7 +439,7 @@ export default function CorrespondencePage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{letterStats?.totalLetters || 0}</div>
+              <div className="text-xl font-bold">{letterStats?.totalLetters || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -448,7 +448,7 @@ export default function CorrespondencePage() {
               <Download className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{letterStats?.incomingLetters || 0}</div>
+              <div className="text-xl font-bold">{letterStats?.incomingLetters || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -457,7 +457,7 @@ export default function CorrespondencePage() {
               <Upload className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{letterStats?.outgoingLetters || 0}</div>
+              <div className="text-xl font-bold">{letterStats?.outgoingLetters || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -466,7 +466,7 @@ export default function CorrespondencePage() {
               <Paperclip className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{letterStats?.lettersWithDocuments || 0}</div>
+              <div className="text-xl font-bold">{letterStats?.lettersWithDocuments || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -475,7 +475,7 @@ export default function CorrespondencePage() {
               <Calendar className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{letterStats?.recentLetters || 0}</div>
+              <div className="text-xl font-bold">{letterStats?.recentLetters || 0}</div>
             </CardContent>
           </Card>
         </div>

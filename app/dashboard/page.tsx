@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import Link from "next/link"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown } from "lucide-react"
+import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown, ExternalLink } from "lucide-react"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -112,7 +113,7 @@ export default function DashboardPage() {
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground">{stat.description}</p>
               </CardContent>
             </Card>

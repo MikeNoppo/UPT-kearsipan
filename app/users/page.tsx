@@ -498,7 +498,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{userStats?.totalUsers || users.length}</div>
+              <div className="text-xl font-bold">{userStats?.totalUsers || users.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -507,7 +507,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{userStats?.adminCount || users.filter((u) => u.role === "ADMINISTRATOR").length}</div>
+              <div className="text-xl font-bold">{userStats?.adminCount || users.filter((u) => u.role === "ADMINISTRATOR").length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -516,7 +516,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{userStats?.staffCount || users.filter((u) => u.role === "STAFF").length}</div>
+              <div className="text-xl font-bold">{userStats?.staffCount || users.filter((u) => u.role === "STAFF").length}</div>
             </CardContent>
           </Card>
         </div>

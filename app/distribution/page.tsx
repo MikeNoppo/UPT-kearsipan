@@ -522,7 +522,7 @@ export default function DistributionPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{distributionStats?.totalDistributions || 0}</div>
+              <div className="text-xl font-bold">{distributionStats?.totalDistributions || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -531,7 +531,7 @@ export default function DistributionPage() {
               <Calendar className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{distributionStats?.recentDistributions || 0}</div>
+              <div className="text-xl font-bold">{distributionStats?.recentDistributions || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -540,7 +540,7 @@ export default function DistributionPage() {
               <Package className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{distributionStats?.totalQuantityDistributed || 0}</div>
+              <div className="text-xl font-bold">{distributionStats?.totalQuantityDistributed || 0}</div>
             </CardContent>
           </Card>
         </div>

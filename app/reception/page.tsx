@@ -469,7 +469,7 @@ export default function ReceptionPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalReceptions}</div>
+              <div className="text-xl font-bold">{stats.totalReceptions}</div>
             </CardContent>
           </Card>
           <Card>
@@ -478,7 +478,7 @@ export default function ReceptionPage() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completeReceptions}</div>
+              <div className="text-xl font-bold">{stats.completeReceptions}</div>
               <p className="text-xs text-muted-foreground">
                 {stats.completionRate}% completion rate
               </p>
@@ -490,7 +490,7 @@ export default function ReceptionPage() {
               <AlertCircle className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.partialReceptions}</div>
+              <div className="text-xl font-bold">{stats.partialReceptions}</div>
             </CardContent>
           </Card>
           <Card>
@@ -499,7 +499,7 @@ export default function ReceptionPage() {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.differentReceptions}</div>
+              <div className="text-xl font-bold">{stats.differentReceptions}</div>
             </CardContent>
           </Card>
         </div>
