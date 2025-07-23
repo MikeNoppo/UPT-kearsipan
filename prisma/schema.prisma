@@ -13,3 +13,222 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  name        String
+  email       String   @unique
+  password    String   // Hashed password
+  role        Role     @default(STAFF)
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastLogin   DateTime?
+
+  // Relations
+  purchaseRequests      PurchaseRequest[] @relation("RequestedBy")
+  reviewedRequests      PurchaseRequest[] @relation("ReviewedBy")
+  receivedItems         Reception[] @relation("ReceivedBy")
+  distributedItems      Distribution[] @relation("DistributedBy")
+  createdLetters        Letter[] @relation("CreatedBy")
+  archivedItems         Archive[] @relation("ArchivedBy")
+  stockTransactions     StockTransaction[]
+
+  @@map("users")
+}
+
+model InventoryItem {
+  id              String   @id @default(cuid())
+  name            String
+  category        String
+  unit            String
+  stock           Int      @default(0)
+  minStock        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  stockTransactions StockTransaction[]
+  receptions        Reception[]
+  distributions     Distribution[]
+  purchaseRequests  PurchaseRequest[]
+
+  @@map("inventory_items")
+}
+
+model StockTransaction {
+  id              String   @id @default(cuid())
+  type            TransactionType
+  quantity        Int
+  description     String?
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  itemId          String
+  item            InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User @relation(fields: [userId], references: [id])
+
+  @@map("stock_transactions")
+}
+
+model PurchaseRequest {
+  id              String   @id @default(cuid())
+  itemName        String
+  quantity        Int
+  unit            String
+  reason          String
+  status          RequestStatus @default(PENDING)
+  notes           String?
+  requestDate     DateTime @default(now())
+  reviewDate      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  requestedById   String
+  requestedBy     User @relation("RequestedBy", fields: [requestedById], references: [id])
+  reviewedById    String?
+  reviewedBy      User? @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  itemId          String?
+  item            InventoryItem? @relation(fields: [itemId], references: [id])
+
+  @@map("purchase_requests")
+}
+
+model Reception {
+  id                  String   @id @default(cuid())
+  requestId           String?
+  itemName            String
+  requestedQuantity   Int
+  receivedQuantity    Int
+  unit                String
+  supplier            String
+  receiptDate         DateTime
+  status              ReceptionStatus
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  receivedById        String
+  receivedBy          User @relation("ReceivedBy", fields: [receivedById], references: [id])
+  itemId              String?
+  item                InventoryItem? @relation(fields: [itemId], references: [id])
+
+  @@map("receptions")
+}
+
+model Distribution {
+  id                  String   @id @default(cuid())
+  noteNumber          String   @unique
+  itemName            String
+  quantity            Int
+  unit                String
+  staffName           String
+  department          String
+  distributionDate    DateTime
+  purpose             String
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  distributedById     String
+  distributedBy       User @relation("DistributedBy", fields: [distributedById], references: [id])
+  itemId              String?
+  item                InventoryItem? @relation(fields: [itemId], references: [id])
+
+  @@map("distributions")
+}
+
+model Letter {
+  id              String   @id @default(cuid())
+  number          String   @unique
+  date            DateTime
+  subject         String
+  type            LetterType
+  from            String?
+  to              String?
+  description     String?
+  status          LetterStatus
+  hasDocument     Boolean  @default(false)
+  documentPath    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  createdById     String
+  createdBy       User @relation("CreatedBy", fields: [createdById], references: [id])
+
+  @@map("letters")
+}
+
+model Archive {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  title               String
+  category            String
+  creationDate        DateTime
+  retentionPeriod     Int
+  status              ArchiveStatus
+  location            String
+  description         String?
+  notes               String?
+  destructionDate     DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  archivedById        String
+  archivedBy          User @relation("ArchivedBy", fields: [archivedById], references: [id])
+
+  @@map("archives")
+}
+
+// Enums
+enum Role {
+  ADMINISTRATOR
+  STAFF
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TransactionType {
+  IN
+  OUT
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReceptionStatus {
+  COMPLETE
+  PARTIAL
+  DIFFERENT
+}
+
+enum LetterType {
+  INCOMING
+  OUTGOING
+}
+
+enum LetterStatus {
+  RECEIVED
+  SENT
+  DRAFT
+}
+
+enum ArchiveStatus {
+  UNDER_REVIEW
+  PERMANENT
+  SCHEDULED_DESTRUCTION
+}
