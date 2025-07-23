@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,9 @@ interface InventoryItem {
   stock: number
   minStock: number
   status: "normal" | "low" | "critical"
+  createdAt?: string
+  updatedAt?: string
+  stockTransactions?: any[]
 }
 
 interface StockTransaction {
@@ -40,42 +43,36 @@ interface StockTransaction {
 }
 
 export default function InventoryPage() {
-  const [items, setItems] = useState<InventoryItem[]>([
-    {
-      id: "1",
-      name: "Kertas HVS A4",
-      category: "Alat Tulis",
-      unit: "Rim",
-      stock: 25,
-      minStock: 10,
-      status: "normal",
-    },
-    {
-      id: "2",
-      name: "Tinta Printer Canon",
-      category: "Elektronik",
-      unit: "Unit",
-      stock: 2,
-      minStock: 5,
-      status: "critical",
-    },
-    {
-      id: "3",
-      name: "Stapler Besar",
-      category: "Alat Tulis",
-      unit: "Unit",
-      stock: 8,
-      minStock: 3,
-      status: "normal",
-    },
-  ])
-
+  const [items, setItems] = useState<InventoryItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState<StockTransaction[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+
+  // Fetch items from API
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const fetchItems = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/inventory')
+      if (response.ok) {
+        const data = await response.json()
+        setItems(data)
+      } else {
+        console.error('Failed to fetch items')
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const [newItem, setNewItem] = useState({
     name: "",
@@ -110,52 +107,78 @@ export default function InventoryPage() {
     }
   }
 
-  const handleAddItem = () => {
-    const id = Date.now().toString()
-    const status = newItem.stock <= newItem.minStock ? (newItem.stock === 0 ? "critical" : "low") : "normal"
+  const handleAddItem = async () => {
+    try {
+      const response = await fetch('/api/inventory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newItem),
+      })
 
-    setItems([...items, { ...newItem, id, status }])
-    setNewItem({ name: "", category: "", unit: "", stock: 0, minStock: 0 })
-    setIsAddDialogOpen(false)
+      if (response.ok) {
+        await fetchItems() // Refresh items list
+        setNewItem({ name: "", category: "", unit: "", stock: 0, minStock: 0 })
+        setIsAddDialogOpen(false)
+      } else {
+        console.error('Failed to add item')
+      }
+    } catch (error) {
+      console.error('Error adding item:', error)
+    }
   }
 
-  const handleStockTransaction = () => {
+  const handleStockTransaction = async () => {
     if (!selectedItem) return
 
-    const transaction: StockTransaction = {
-      id: Date.now().toString(),
-      itemId: selectedItem.id,
-      type: stockTransaction.type,
-      quantity: stockTransaction.quantity,
-      date: new Date().toISOString(),
-      description: stockTransaction.description,
-    }
+    try {
+      // TODO : For now, we'll use a dummy user ID - in real app this would come from auth
+      const userId = 'user-1' // This should be from authentication context
+      
+      const response = await fetch('/api/stock-transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemId: selectedItem.id,
+          type: stockTransaction.type.toUpperCase(),
+          quantity: stockTransaction.quantity,
+          description: stockTransaction.description,
+          userId: userId
+        }),
+      })
 
-    setTransactions([...transactions, transaction])
-
-    // Update item stock
-    const updatedItems = items.map((item) => {
-      if (item.id === selectedItem.id) {
-        const newStock =
-          stockTransaction.type === "in"
-            ? item.stock + stockTransaction.quantity
-            : item.stock - stockTransaction.quantity
-
-        const status = newStock <= item.minStock ? (newStock === 0 ? "critical" : "low") : "normal"
-
-        return { ...item, stock: Math.max(0, newStock), status }
+      if (response.ok) {
+        await fetchItems() // Refresh items list
+        setStockTransaction({ type: "in", quantity: 0, description: "" })
+        setIsStockDialogOpen(false)
+        setSelectedItem(null)
+      } else {
+        const errorData = await response.json()
+        alert(errorData.error || 'Failed to process stock transaction')
       }
-      return item
-    })
-
-    setItems(updatedItems)
-    setStockTransaction({ type: "in", quantity: 0, description: "" })
-    setIsStockDialogOpen(false)
-    setSelectedItem(null)
+    } catch (error) {
+      console.error('Error processing stock transaction:', error)
+      alert('Error processing stock transaction')
+    }
   }
 
-  const handleDeleteItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id))
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const response = await fetch(`/api/inventory/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        await fetchItems() // Refresh items list
+      } else {
+        console.error('Failed to delete item')
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error)
+    }
   }
 
   return (
