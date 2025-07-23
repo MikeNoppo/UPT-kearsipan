@@ -6,7 +6,6 @@ import { z } from "zod"
 
 // Schema validation for distribution creation
 const distributionSchema = z.object({
-  noteNumber: z.string().min(1, "Note number is required"),
   itemName: z.string().min(1, "Item name is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unit: z.string().min(1, "Unit is required"),
@@ -17,6 +16,39 @@ const distributionSchema = z.object({
   notes: z.string().optional(),
   itemId: z.string().optional(),
 })
+
+// Helper function to generate next note number
+async function generateNoteNumber(): Promise<string> {
+  try {
+    // Get the last distribution ordered by creation date
+    const lastDistribution = await prisma.distribution.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { noteNumber: true }
+    })
+
+    if (!lastDistribution) {
+      return "DST-001"
+    }
+
+    const lastNoteNumber = lastDistribution.noteNumber
+    // Extract number from note number format DST-XXX
+    const match = lastNoteNumber.match(/DST-(\d+)/)
+    
+    if (match) {
+      const lastNumber = parseInt(match[1])
+      const nextNumber = lastNumber + 1
+      return `DST-${nextNumber.toString().padStart(3, '0')}`
+    } else {
+      // If format doesn't match, start from 001
+      return "DST-001"
+    }
+  } catch (error) {
+    console.error("Error generating note number:", error)
+    // Fallback: use timestamp-based number
+    const fallbackNumber = Date.now().toString().slice(-3)
+    return `DST-${fallbackNumber}`
+  }
+}
 
 // GET /api/distribution - Fetch all distributions
 export async function GET(request: NextRequest) {
@@ -115,16 +147,45 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = distributionSchema.parse(body)
 
-    // Check if note number already exists
+    // Generate unique note number
+    const noteNumber = await generateNoteNumber()
+
+    // Check if generated note number already exists (extra safety check)
     const existingDistribution = await prisma.distribution.findUnique({
-      where: { noteNumber: validatedData.noteNumber },
+      where: { noteNumber },
     })
 
     if (existingDistribution) {
-      return NextResponse.json(
-        { error: "Note number already exists" },
-        { status: 400 }
-      )
+      // If by chance the generated number exists, try again with timestamp fallback
+      const fallbackNumber = Date.now().toString().slice(-6)
+      const fallbackNoteNumber = `DST-${fallbackNumber}`
+      
+      const distribution = await prisma.distribution.create({
+        data: {
+          noteNumber: fallbackNoteNumber,
+          distributedById: session.user.id,
+          ...validatedData,
+        },
+        include: {
+          distributedBy: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+            },
+          },
+          item: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              stock: true,
+            },
+          },
+        },
+      })
+      
+      return NextResponse.json(distribution, { status: 201 })
     }
 
     // If itemId is provided, check if item exists and update stock
@@ -155,6 +216,7 @@ export async function POST(request: NextRequest) {
       // Create the distribution
       const distribution = await tx.distribution.create({
         data: {
+          noteNumber,
           ...validatedData,
           distributedById: session.user.id,
         },
@@ -193,7 +255,7 @@ export async function POST(request: NextRequest) {
           data: {
             type: "OUT",
             quantity: validatedData.quantity,
-            description: `Distribution - ${validatedData.noteNumber}: ${validatedData.purpose}`,
+            description: `Distribution - ${noteNumber}: ${validatedData.purpose}`,
             itemId: validatedData.itemId,
             userId: session.user.id,
           },

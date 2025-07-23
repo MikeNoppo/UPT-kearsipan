@@ -101,7 +101,6 @@ export default function DistributionPage() {
   const { toast } = useToast()
 
   const [newDistribution, setNewDistribution] = useState({
-    noteNumber: "",
     itemName: "",
     quantity: 1,
     unit: "",
@@ -190,7 +189,7 @@ export default function DistributionPage() {
   }, [session, status, router, fetchDistributions, fetchDistributionStats, fetchInventoryItems])
 
   const handleAddDistribution = async () => {
-    if (!newDistribution.noteNumber || !newDistribution.itemName || !newDistribution.staffName || 
+    if (!newDistribution.itemName || !newDistribution.staffName || 
         !newDistribution.department || !newDistribution.purpose) {
       toast({
         title: "Error",
@@ -220,8 +219,9 @@ export default function DistributionPage() {
 
       const createdDistribution = await response.json()
       setDistributions([createdDistribution, ...distributions])
+      
+      // Reset form
       setNewDistribution({
-        noteNumber: "",
         itemName: "",
         quantity: 1,
         unit: "",
@@ -388,17 +388,7 @@ export default function DistributionPage() {
                 <DialogDescription>Buat catatan distribusi barang baru</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="noteNumber">Nomor Nota *</Label>
-                    <Input
-                      id="noteNumber"
-                      value={newDistribution.noteNumber}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, noteNumber: e.target.value })}
-                      disabled={isSubmitting}
-                      placeholder="DST-001"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="distributionDate">Tanggal Distribusi *</Label>
                     <Input
