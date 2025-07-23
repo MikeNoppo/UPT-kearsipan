@@ -116,7 +116,7 @@ export async function PUT(
     const newStatus = validatedData.status ?? oldStatus;
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     
     if (validatedData.receiptDate) {
       updateData.receiptDate = new Date(validatedData.receiptDate);

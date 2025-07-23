@@ -134,7 +134,7 @@ export async function PUT(
     }
 
     // Prepare update data
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (username) updateData.username = username
     if (name) updateData.name = name
     if (email) updateData.email = email

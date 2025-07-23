@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
 
     // Build where clause
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     // Only staff can export their own requests, admins can export all
     if (session.user.role === 'STAFF') {
@@ -31,12 +31,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate || endDate) {
-      where.requestDate = {};
+      where.requestDate = {} as Record<string, Date>;
       if (startDate) {
-        where.requestDate.gte = new Date(startDate);
+        (where.requestDate as Record<string, Date>).gte = new Date(startDate);
       }
       if (endDate) {
-        where.requestDate.lte = new Date(endDate);
+        (where.requestDate as Record<string, Date>).lte = new Date(endDate);
       }
     }
 
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         'Notes',
       ];
 
-      const csvRows = purchaseRequests.map(request => [
+      const csvRows = purchaseRequests.map((request) => [
         request.id,
         request.itemName,
         request.quantity,
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       ]);
 
       const csvContent = [csvHeaders, ...csvRows]
-        .map(row => row.map(field => `"${field}"`).join(','))
+        .map((row: (string | number)[]) => row.map((field: string | number) => `"${field}"`).join(','))
         .join('\n');
 
       return new NextResponse(csvContent, {

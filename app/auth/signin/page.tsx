@@ -37,7 +37,7 @@ export default function SignInPage() {
           router.push("/dashboard")
         }
       }
-    } catch (error) {
+    } catch {
       setError("Terjadi kesalahan saat login")
     } finally {
       setLoading(false)

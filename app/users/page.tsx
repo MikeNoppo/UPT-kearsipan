@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
@@ -63,6 +63,42 @@ export default function UsersPage() {
     password: "",
   })
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await fetch("/api/users")
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+      const data = await response.json()
+      setUsers(data)
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  const fetchUserStats = useCallback(async () => {
+    try {
+      const response = await fetch("/api/users/stats")
+      if (!response.ok) {
+        throw new Error("Failed to fetch user statistics")
+      }
+      const data = await response.json()
+      setUserStats(data)
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to fetch user statistics",
+        variant: "destructive",
+      })
+    }
+  }, [toast])
+
   useEffect(() => {
     if (status === "loading") return
 
@@ -78,43 +114,7 @@ export default function UsersPage() {
 
     fetchUsers()
     fetchUserStats()
-  }, [session, status, router])
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch("/api/users")
-      if (!response.ok) {
-        throw new Error("Failed to fetch users")
-      }
-      const data = await response.json()
-      setUsers(data)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchUserStats = async () => {
-    try {
-      const response = await fetch("/api/users/stats")
-      if (!response.ok) {
-        throw new Error("Failed to fetch user statistics")
-      }
-      const data = await response.json()
-      setUserStats(data)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch user statistics",
-        variant: "destructive",
-      })
-    }
-  }
+  }, [session, status, router, fetchUsers, fetchUserStats])
 
   const getRoleBadge = (role: string) => {
     switch (role) {

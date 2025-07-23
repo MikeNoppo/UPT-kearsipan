@@ -94,7 +94,7 @@ export default function PurchaseRequestsPage() {
     if (session) {
       fetchRequests()
     }
-  }, [session])
+  }, [session, fetchRequests])
 
   const getStatusBadge = (status: string) => {
     switch (status) {

@@ -6,15 +6,9 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown } from "lucide-react"
 
-interface User {
-  username: string
-  role: string
-  name: string
-}
-
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

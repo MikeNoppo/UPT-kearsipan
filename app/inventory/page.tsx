@@ -31,7 +31,7 @@ interface InventoryItem {
   status: "normal" | "low" | "critical"
   createdAt?: string
   updatedAt?: string
-  stockTransactions?: any[]
+  stockTransactions?: StockTransaction[]
 }
 
 interface StockTransaction {
@@ -46,8 +46,6 @@ interface StockTransaction {
 export default function InventoryPage() {
   const { data: session } = useSession()
   const [items, setItems] = useState<InventoryItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [transactions, setTransactions] = useState<StockTransaction[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -61,7 +59,6 @@ export default function InventoryPage() {
 
   const fetchItems = async () => {
     try {
-      setLoading(true)
       const response = await fetch('/api/inventory')
       if (response.ok) {
         const data = await response.json()
@@ -71,8 +68,6 @@ export default function InventoryPage() {
       }
     } catch (error) {
       console.error('Error fetching items:', error)
-    } finally {
-      setLoading(false)
     }
   }
 

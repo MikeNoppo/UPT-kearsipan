@@ -163,7 +163,7 @@ export default function ReceptionPage() {
       fetchStats()
       fetchInventory()
     }
-  }, [session])
+  }, [session, fetchReceptions])
 
   const filteredReceptions = receptions.filter(
     (reception) =>
