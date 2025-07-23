@@ -14,6 +14,8 @@ interface User {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -23,65 +25,82 @@ export default function DashboardPage() {
       return
     }
     setUser(JSON.parse(userData))
+    fetchStats()
   }, [router])
 
-  if (!user) {
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats')
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      } else {
+        console.error('Failed to fetch stats')
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!user || loading) {
     return <div>Loading...</div>
   }
 
-  const stats = [
+  const statsConfig = [
     {
       title: "Permintaan Pending",
-      value: "8",
+      value: stats?.pendingRequests?.toString() || "0",
       description: "Menunggu persetujuan",
       icon: ShoppingCart,
       color: "text-orange-500",
     },
     {
       title: "Barang Diterima",
-      value: "23",
+      value: stats?.receivedThisMonth?.toString() || "0",
       description: "Bulan ini",
       icon: TrendingUp,
       color: "text-green-500",
     },
     {
       title: "Barang Keluar",
-      value: "15",
+      value: stats?.distributedThisMonth?.toString() || "0",
       description: "Bulan ini",
       icon: TrendingDown,
       color: "text-blue-500",
     },
     {
       title: "Total Inventaris",
-      value: "156",
+      value: stats?.totalInventory?.toString() || "0",
       description: "Item aktif",
       icon: Package,
       color: "text-purple-500",
     },
     {
       title: "Surat Masuk",
-      value: "12",
+      value: stats?.incomingLettersThisMonth?.toString() || "0",
       description: "Bulan ini",
       icon: Download,
       color: "text-cyan-500",
     },
     {
       title: "Surat Keluar",
-      value: "18",
+      value: stats?.outgoingLettersThisMonth?.toString() || "0",
       description: "Bulan ini",
       icon: Upload,
       color: "text-indigo-500",
     },
     {
       title: "Arsip Permanen",
-      value: "1,234",
+      value: stats?.permanentArchives?.toString() || "0",
       description: "Total dokumen",
       icon: Archive,
       color: "text-gray-500",
     },
     {
       title: "Arsip Musnah",
-      value: "45",
+      value: stats?.scheduledDestructionArchives?.toString() || "0",
       description: "Dijadwalkan",
       icon: Archive,
       color: "text-red-500",
@@ -97,7 +116,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, index) => (
+          {statsConfig.map((stat, index) => (
             <Card key={index}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
