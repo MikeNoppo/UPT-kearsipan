@@ -45,6 +45,7 @@ export default function DashboardPage() {
       description: "Menunggu persetujuan",
       icon: ShoppingCart,
       color: "text-orange-500",
+      href: "/purchase-requests",
     },
     {
       title: "Barang Diterima",
@@ -52,6 +53,7 @@ export default function DashboardPage() {
       description: "Bulan ini",
       icon: TrendingUp,
       color: "text-green-500",
+      href: "/reception",
     },
     {
       title: "Barang Keluar",
@@ -59,6 +61,7 @@ export default function DashboardPage() {
       description: "Bulan ini",
       icon: TrendingDown,
       color: "text-blue-500",
+      href: "/distribution",
     },
     {
       title: "Total Inventaris",
@@ -66,6 +69,7 @@ export default function DashboardPage() {
       description: "Item aktif",
       icon: Package,
       color: "text-purple-500",
+      href: "/inventory",
     },
     {
       title: "Surat Masuk",
@@ -73,6 +77,7 @@ export default function DashboardPage() {
       description: "Bulan ini",
       icon: Download,
       color: "text-cyan-500",
+      href: "/correspondence",
     },
     {
       title: "Surat Keluar",
@@ -80,6 +85,7 @@ export default function DashboardPage() {
       description: "Bulan ini",
       icon: Upload,
       color: "text-indigo-500",
+      href: "/correspondence",
     },
     {
       title: "Arsip Permanen",
@@ -87,6 +93,7 @@ export default function DashboardPage() {
       description: "Total dokumen",
       icon: Archive,
       color: "text-gray-500",
+      href: "/archive-inventory",
     },
     {
       title: "Arsip Musnah",
@@ -94,6 +101,7 @@ export default function DashboardPage() {
       description: "Dijadwalkan",
       icon: Archive,
       color: "text-red-500",
+      href: "/archive-inventory",
     },
   ]
 
@@ -114,7 +122,16 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  <Link 
+                    href={stat.href} 
+                    className="text-xs text-black hover:text-gray-600 hover:underline flex items-center gap-1"
+                  >
+                    detail
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ))}
