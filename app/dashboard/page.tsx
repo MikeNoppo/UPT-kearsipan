@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown } from "lucide-react"
@@ -13,20 +13,15 @@ interface User {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const { data: session } = useSession()
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/")
-      return
+    if (session) {
+      fetchStats()
     }
-    setUser(JSON.parse(userData))
-    fetchStats()
-  }, [router])
+  }, [session])
 
   const fetchStats = async () => {
     try {
@@ -44,7 +39,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (!user || loading) {
+  if (!session || loading) {
     return <div>Loading...</div>
   }
 
@@ -112,7 +107,7 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Selamat datang, {user.name}</p>
+          <p className="text-muted-foreground">Selamat datang, {session.user.name}</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useSession, signOut } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -22,26 +23,26 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [user, setUser] = useState<any | null>(null)
+  const { data: session, status } = useSession()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/")
-      return
+    if (status === "unauthenticated") {
+      router.push("/auth/signin")
     }
-    setUser(JSON.parse(userData))
-  }, [router])
+  }, [status, router])
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
-    router.push("/")
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/auth/signin" })
   }
 
-  if (!user) {
+  if (status === "loading") {
     return <div>Loading...</div>
+  }
+
+  if (!session) {
+    return <div>Redirecting...</div>
   }
 
   const navigation = [
@@ -83,7 +84,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   ]
 
   // Add user management for admin
-  if (user.role === "administrator") {
+  if (session.user.role === "ADMINISTRATOR") {
     navigation.push({
       name: "Manajemen User",
       href: "/users",
@@ -162,8 +163,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                 <div>
-                  <p className="font-medium">{user.name}</p>
-                  <p className="text-sm text-muted-foreground capitalize">{user.role}</p>
+                  <p className="font-medium">{session.user.name}</p>
+                  <p className="text-sm text-muted-foreground capitalize">{session.user.role}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

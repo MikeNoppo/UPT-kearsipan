@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +44,7 @@ interface StockTransaction {
 }
 
 export default function InventoryPage() {
+  const { data: session } = useSession()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState<StockTransaction[]>([])
@@ -130,12 +132,9 @@ export default function InventoryPage() {
   }
 
   const handleStockTransaction = async () => {
-    if (!selectedItem) return
+    if (!selectedItem || !session?.user?.id) return
 
     try {
-      // TODO : For now, we'll use a dummy user ID - in real app this would come from auth
-      const userId = 'user-1' // This should be from authentication context
-      
       const response = await fetch('/api/stock-transactions', {
         method: 'POST',
         headers: {
@@ -146,7 +145,7 @@ export default function InventoryPage() {
           type: stockTransaction.type.toUpperCase(),
           quantity: stockTransaction.quantity,
           description: stockTransaction.description,
-          userId: userId
+          userId: session.user.id
         }),
       })
 

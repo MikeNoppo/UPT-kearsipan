@@ -1,15 +1,26 @@
-import { LoginForm } from "@/components/auth/login-form"
+"use client"
+
+import { useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 export default function HomePage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === "loading") return // Still loading
+
+    if (session) {
+      router.push("/dashboard")
+    } else {
+      router.push("/auth/signin")
+    }
+  }, [session, status, router])
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Sistem Informasi Kearsipan UPT</h2>
-          <p className="mt-2 text-sm text-gray-600">UPT Kearsipan - Universitas Sam Ratulangi</p>
-        </div>
-        <LoginForm />
-      </div>
+      <div>Loading...</div>
     </div>
   )
 }
