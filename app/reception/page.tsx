@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,9 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Package, CheckCircle, AlertCircle, Search } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Package, CheckCircle, AlertCircle, Search, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Reception {
   id: string
@@ -29,9 +32,30 @@ interface Reception {
   unit: string
   supplier: string
   receiptDate: string
-  receivedBy: string
-  notes: string
-  status: "complete" | "partial" | "different"
+  status: "COMPLETE" | "PARTIAL" | "DIFFERENT"
+  notes?: string
+  createdAt: string
+  updatedAt: string
+  receivedBy: {
+    id: string
+    name: string
+    username: string
+  }
+  item?: {
+    id: string
+    name: string
+    category: string
+    stock: number
+    unit: string
+  }
+}
+
+interface ReceptionStats {
+  totalReceptions: number
+  completeReceptions: number
+  partialReceptions: number
+  differentReceptions: number
+  completionRate: number
 }
 
 interface InventoryItem {
@@ -42,40 +66,19 @@ interface InventoryItem {
 }
 
 export default function ReceptionPage() {
-  const [receptions, setReceptions] = useState<Reception[]>([
-    {
-      id: "1",
-      requestId: "REQ001",
-      itemName: "Kertas HVS A4",
-      requestedQuantity: 10,
-      receivedQuantity: 10,
-      unit: "Rim",
-      supplier: "PT Sinar Dunia",
-      receiptDate: "2024-01-15",
-      receivedBy: "Staff Tata Usaha",
-      notes: "Barang diterima sesuai permintaan",
-      status: "complete",
-    },
-    {
-      id: "2",
-      requestId: "REQ002",
-      itemName: "Tinta Printer Canon",
-      requestedQuantity: 5,
-      receivedQuantity: 3,
-      unit: "Unit",
-      supplier: "CV Maju Jaya",
-      receiptDate: "2024-01-14",
-      receivedBy: "Staff Tata Usaha",
-      notes: "Stok supplier terbatas, sisanya menyusul",
-      status: "partial",
-    },
-  ])
-
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: "1", name: "Kertas HVS A4", stock: 25, unit: "Rim" },
-    { id: "2", name: "Tinta Printer Canon", stock: 8, unit: "Unit" },
-  ])
-
+  const { data: session, status } = useSession()
+  const { toast } = useToast()
+  const [receptions, setReceptions] = useState<Reception[]>([])
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [stats, setStats] = useState<ReceptionStats>({
+    totalReceptions: 0,
+    completeReceptions: 0,
+    partialReceptions: 0,
+    differentReceptions: 0,
+    completionRate: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
@@ -88,7 +91,79 @@ export default function ReceptionPage() {
     supplier: "",
     receiptDate: "",
     notes: "",
+    status: "COMPLETE" as "COMPLETE" | "PARTIAL" | "DIFFERENT",
+    itemId: "",
   })
+
+  // Fetch receptions from API
+  const fetchReceptions = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/reception')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch receptions')
+      }
+
+      const data = await response.json()
+      setReceptions(data.receptions || [])
+    } catch (error) {
+      console.error('Error fetching receptions:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load receptions",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch statistics
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/reception/stats')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch statistics')
+      }
+
+      const data = await response.json()
+      setStats({
+        totalReceptions: data.totalReceptions,
+        completeReceptions: data.completeReceptions,
+        partialReceptions: data.partialReceptions,
+        differentReceptions: data.differentReceptions,
+        completionRate: data.completionRate,
+      })
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    }
+  }
+
+  // Fetch inventory items for selection
+  const fetchInventory = async () => {
+    try {
+      const response = await fetch('/api/inventory')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch inventory')
+      }
+
+      const data = await response.json()
+      setInventory(data.items || [])
+    } catch (error) {
+      console.error('Error fetching inventory:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchReceptions()
+      fetchStats()
+      fetchInventory()
+    }
+  }, [session])
 
   const filteredReceptions = receptions.filter(
     (reception) =>
@@ -99,21 +174,21 @@ export default function ReceptionPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "complete":
+      case "COMPLETE":
         return (
-          <Badge variant="default">
+          <Badge variant="default" className="bg-green-600">
             <CheckCircle className="mr-1 h-3 w-3" />
             Lengkap
           </Badge>
         )
-      case "partial":
+      case "PARTIAL":
         return (
           <Badge variant="secondary">
             <AlertCircle className="mr-1 h-3 w-3" />
             Sebagian
           </Badge>
         )
-      case "different":
+      case "DIFFERENT":
         return (
           <Badge variant="destructive">
             <AlertCircle className="mr-1 h-3 w-3" />
@@ -125,53 +200,105 @@ export default function ReceptionPage() {
     }
   }
 
-  const handleAddReception = () => {
-    const reception: Reception = {
-      id: Date.now().toString(),
-      ...newReception,
-      receivedBy: "Staff Tata Usaha", // In real app, get from current user
-      status:
-        newReception.receivedQuantity === newReception.requestedQuantity
-          ? "complete"
-          : newReception.receivedQuantity < newReception.requestedQuantity
-            ? "partial"
-            : "different",
+  const handleAddReception = async () => {
+    if (!newReception.itemName || !newReception.supplier || !newReception.receiptDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
     }
 
-    setReceptions([...receptions, reception])
+    try {
+      setSubmitting(true)
+      
+      // Prepare the data
+      const receptionData = {
+        ...newReception,
+        receiptDate: new Date(newReception.receiptDate).toISOString(),
+        itemId: newReception.itemId || undefined,
+      }
 
-    // Update inventory stock
-    const existingItem = inventory.find((item) => item.name === newReception.itemName)
-    if (existingItem) {
-      setInventory(
-        inventory.map((item) =>
-          item.name === newReception.itemName ? { ...item, stock: item.stock + newReception.receivedQuantity } : item,
-        ),
-      )
-    } else {
-      // Add new item to inventory
-      setInventory([
-        ...inventory,
-        {
-          id: Date.now().toString(),
-          name: newReception.itemName,
-          stock: newReception.receivedQuantity,
-          unit: newReception.unit,
+      const response = await fetch('/api/reception', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ])
-    }
+        body: JSON.stringify(receptionData),
+      })
 
-    setNewReception({
-      requestId: "",
-      itemName: "",
-      requestedQuantity: 0,
-      receivedQuantity: 0,
-      unit: "",
-      supplier: "",
-      receiptDate: "",
-      notes: "",
-    })
-    setIsAddDialogOpen(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create reception')
+      }
+
+      const createdReception = await response.json()
+      setReceptions([createdReception, ...receptions])
+      
+      // Refresh stats
+      fetchStats()
+      
+      setNewReception({
+        requestId: "",
+        itemName: "",
+        requestedQuantity: 0,
+        receivedQuantity: 0,
+        unit: "",
+        supplier: "",
+        receiptDate: "",
+        notes: "",
+        status: "COMPLETE",
+        itemId: "",
+      })
+      setIsAddDialogOpen(false)
+      
+      toast({
+        title: "Success",
+        description: "Reception recorded successfully",
+      })
+    } catch (error) {
+      console.error('Error creating reception:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to create reception',
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleInventoryItemSelect = (itemId: string) => {
+    const selectedItem = inventory.find(item => item.id === itemId)
+    if (selectedItem) {
+      setNewReception(prev => ({
+        ...prev,
+        itemId: itemId,
+        itemName: selectedItem.name,
+        unit: selectedItem.unit,
+      }))
+    }
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!session) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Please sign in to access this page</p>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   return (
@@ -193,7 +320,7 @@ export default function ReceptionPage() {
               <DialogHeader>
                 <DialogTitle>Catat Penerimaan Barang</DialogTitle>
                 <DialogDescription>
-                  Masukkan detail barang yang diterima. Stok akan otomatis diperbarui.
+                  Masukkan detail barang yang diterima. Stok akan otomatis diperbarui jika barang terhubung dengan inventaris.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -208,24 +335,44 @@ export default function ReceptionPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="receiptDate">Tanggal Terima</Label>
+                    <Label htmlFor="receiptDate">Tanggal Terima *</Label>
                     <Input
                       id="receiptDate"
                       type="date"
                       value={newReception.receiptDate}
                       onChange={(e) => setNewReception({ ...newReception, receiptDate: e.target.value })}
+                      required
                     />
                   </div>
                 </div>
+                
                 <div className="grid gap-2">
-                  <Label htmlFor="itemName">Nama Barang</Label>
+                  <Label htmlFor="inventoryItem">Pilih dari Inventaris (Opsional)</Label>
+                  <Select onValueChange={handleInventoryItemSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih barang dari inventaris" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventory.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name} - Stok: {item.stock} {item.unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="itemName">Nama Barang *</Label>
                   <Input
                     id="itemName"
                     value={newReception.itemName}
                     onChange={(e) => setNewReception({ ...newReception, itemName: e.target.value })}
+                    required
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                
+                <div className="grid grid-cols-4 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="requestedQuantity">Jumlah Diminta</Label>
                     <Input
@@ -241,7 +388,7 @@ export default function ReceptionPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="receivedQuantity">Jumlah Diterima</Label>
+                    <Label htmlFor="receivedQuantity">Jumlah Diterima *</Label>
                     <Input
                       id="receivedQuantity"
                       type="number"
@@ -252,26 +399,49 @@ export default function ReceptionPage() {
                           receivedQuantity: Number.parseInt(e.target.value) || 0,
                         })
                       }
+                      required
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="unit">Satuan</Label>
+                    <Label htmlFor="unit">Satuan *</Label>
                     <Input
                       id="unit"
                       value={newReception.unit}
                       onChange={(e) => setNewReception({ ...newReception, unit: e.target.value })}
                       placeholder="Unit, Rim, Kg"
+                      required
                     />
                   </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status</Label>
+                    <Select 
+                      value={newReception.status} 
+                      onValueChange={(value: "COMPLETE" | "PARTIAL" | "DIFFERENT") => 
+                        setNewReception({ ...newReception, status: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="COMPLETE">Lengkap</SelectItem>
+                        <SelectItem value="PARTIAL">Sebagian</SelectItem>
+                        <SelectItem value="DIFFERENT">Berbeda</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
                 <div className="grid gap-2">
-                  <Label htmlFor="supplier">Supplier</Label>
+                  <Label htmlFor="supplier">Supplier *</Label>
                   <Input
                     id="supplier"
                     value={newReception.supplier}
                     onChange={(e) => setNewReception({ ...newReception, supplier: e.target.value })}
+                    required
                   />
                 </div>
+                
                 <div className="grid gap-2">
                   <Label htmlFor="notes">Catatan</Label>
                   <Textarea
@@ -283,7 +453,10 @@ export default function ReceptionPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddReception}>Simpan Penerimaan</Button>
+                <Button onClick={handleAddReception} disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Simpan Penerimaan
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -296,7 +469,7 @@ export default function ReceptionPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{receptions.length}</div>
+              <div className="text-2xl font-bold">{stats.totalReceptions}</div>
             </CardContent>
           </Card>
           <Card>
@@ -305,7 +478,10 @@ export default function ReceptionPage() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{receptions.filter((r) => r.status === "complete").length}</div>
+              <div className="text-2xl font-bold">{stats.completeReceptions}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.completionRate}% completion rate
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -314,7 +490,7 @@ export default function ReceptionPage() {
               <AlertCircle className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{receptions.filter((r) => r.status === "partial").length}</div>
+              <div className="text-2xl font-bold">{stats.partialReceptions}</div>
             </CardContent>
           </Card>
           <Card>
@@ -323,7 +499,7 @@ export default function ReceptionPage() {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{receptions.filter((r) => r.status === "different").length}</div>
+              <div className="text-2xl font-bold">{stats.differentReceptions}</div>
             </CardContent>
           </Card>
         </div>
@@ -354,6 +530,7 @@ export default function ReceptionPage() {
                   <TableHead>Diminta</TableHead>
                   <TableHead>Diterima</TableHead>
                   <TableHead>Supplier</TableHead>
+                  <TableHead>Diterima Oleh</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -362,14 +539,31 @@ export default function ReceptionPage() {
                 {filteredReceptions.map((reception) => (
                   <TableRow key={reception.id}>
                     <TableCell className="font-medium">{reception.requestId || "-"}</TableCell>
-                    <TableCell>{reception.itemName}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{reception.itemName}</div>
+                        {reception.item && (
+                          <div className="text-sm text-muted-foreground">
+                            {reception.item.category} - Stock: {reception.item.stock}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {reception.requestedQuantity} {reception.unit}
                     </TableCell>
                     <TableCell>
-                      {reception.receivedQuantity} {reception.unit}
+                      <div className="font-medium">
+                        {reception.receivedQuantity} {reception.unit}
+                      </div>
+                      {reception.requestedQuantity > 0 && (
+                        <div className="text-sm text-muted-foreground">
+                          {Math.round((reception.receivedQuantity / reception.requestedQuantity) * 100)}% dari diminta
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>{reception.supplier}</TableCell>
+                    <TableCell>{reception.receivedBy.name}</TableCell>
                     <TableCell>{new Date(reception.receiptDate).toLocaleDateString("id-ID")}</TableCell>
                     <TableCell>{getStatusBadge(reception.status)}</TableCell>
                   </TableRow>

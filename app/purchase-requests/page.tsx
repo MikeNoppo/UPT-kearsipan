@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Check, X, Clock } from "lucide-react"
+import { Plus, Check, X, Clock, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface PurchaseRequest {
   id: string
@@ -26,41 +28,36 @@ interface PurchaseRequest {
   quantity: number
   unit: string
   reason: string
-  requestedBy: string
-  requestDate: string
-  status: "pending" | "approved" | "rejected"
-  reviewedBy?: string
-  reviewDate?: string
+  status: "PENDING" | "APPROVED" | "REJECTED"
   notes?: string
+  requestDate: string
+  reviewDate?: string
+  createdAt: string
+  updatedAt: string
+  requestedBy: {
+    id: string
+    name: string
+    username: string
+  }
+  reviewedBy?: {
+    id: string
+    name: string
+    username: string
+  }
+  item?: {
+    id: string
+    name: string
+    category: string
+    stock: number
+  }
 }
 
 export default function PurchaseRequestsPage() {
-  const [user, setUser] = useState<any>(null)
-  const [requests, setRequests] = useState<PurchaseRequest[]>([
-    {
-      id: "1",
-      itemName: "Kertas HVS A4",
-      quantity: 10,
-      unit: "Rim",
-      reason: "Stok habis untuk kebutuhan operasional",
-      requestedBy: "Staff Tata Usaha",
-      requestDate: "2024-01-15",
-      status: "pending",
-    },
-    {
-      id: "2",
-      itemName: "Tinta Printer",
-      quantity: 5,
-      unit: "Unit",
-      reason: "Tinta printer hampir habis",
-      requestedBy: "Staff Tata Usaha",
-      requestDate: "2024-01-14",
-      status: "approved",
-      reviewedBy: "Administrator",
-      reviewDate: "2024-01-15",
-    },
-  ])
-
+  const { data: session, status } = useSession()
+  const { toast } = useToast()
+  const [requests, setRequests] = useState<PurchaseRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newRequest, setNewRequest] = useState({
     itemName: "",
@@ -69,30 +66,53 @@ export default function PurchaseRequestsPage() {
     reason: "",
   })
 
-  useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (userData) {
-      setUser(JSON.parse(userData))
+  // Fetch purchase requests from API
+  const fetchRequests = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/purchase-requests')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch purchase requests')
+      }
+
+      const data = await response.json()
+      setRequests(data.purchaseRequests || [])
+    } catch (error) {
+      console.error('Error fetching requests:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load purchase requests",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchRequests()
+    }
+  }, [session])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
+      case "PENDING":
         return (
           <Badge variant="secondary">
             <Clock className="mr-1 h-3 w-3" />
             Pending
           </Badge>
         )
-      case "approved":
+      case "APPROVED":
         return (
-          <Badge variant="default">
+          <Badge variant="default" className="bg-green-600">
             <Check className="mr-1 h-3 w-3" />
             Disetujui
           </Badge>
         )
-      case "rejected":
+      case "REJECTED":
         return (
           <Badge variant="destructive">
             <X className="mr-1 h-3 w-3" />
@@ -104,52 +124,117 @@ export default function PurchaseRequestsPage() {
     }
   }
 
-  const handleAddRequest = () => {
-    const request: PurchaseRequest = {
-      id: Date.now().toString(),
-      ...newRequest,
-      requestedBy: user?.name || "Unknown",
-      requestDate: new Date().toISOString().split("T")[0],
-      status: "pending",
+  const handleAddRequest = async () => {
+    if (!newRequest.itemName || !newRequest.quantity || !newRequest.unit || !newRequest.reason) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
     }
 
-    setRequests([...requests, request])
-    setNewRequest({ itemName: "", quantity: 0, unit: "", reason: "" })
-    setIsAddDialogOpen(false)
+    try {
+      setSubmitting(true)
+      const response = await fetch('/api/purchase-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newRequest),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create purchase request')
+      }
+
+      const createdRequest = await response.json()
+      setRequests([createdRequest, ...requests])
+      setNewRequest({ itemName: "", quantity: 0, unit: "", reason: "" })
+      setIsAddDialogOpen(false)
+      toast({
+        title: "Success",
+        description: "Purchase request created successfully",
+      })
+    } catch (error) {
+      console.error('Error creating request:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to create purchase request',
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
+    try {
+      const response = await fetch(`/api/purchase-requests/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to review purchase request')
+      }
+
+      const updatedRequest = await response.json()
+      setRequests(requests.map(request => 
+        request.id === id ? updatedRequest : request
+      ))
+      
+      toast({
+        title: "Success",
+        description: `Purchase request ${status.toLowerCase()} successfully`,
+      })
+    } catch (error) {
+      console.error('Error reviewing request:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to review purchase request',
+        variant: "destructive",
+      })
+    }
   }
 
   const handleApproveRequest = (id: string) => {
-    setRequests(
-      requests.map((request) =>
-        request.id === id
-          ? {
-              ...request,
-              status: "approved" as const,
-              reviewedBy: user?.name,
-              reviewDate: new Date().toISOString().split("T")[0],
-            }
-          : request,
-      ),
-    )
+    handleReviewRequest(id, 'APPROVED')
   }
 
   const handleRejectRequest = (id: string) => {
-    setRequests(
-      requests.map((request) =>
-        request.id === id
-          ? {
-              ...request,
-              status: "rejected" as const,
-              reviewedBy: user?.name,
-              reviewDate: new Date().toISOString().split("T")[0],
-            }
-          : request,
-      ),
+    handleReviewRequest(id, 'REJECTED')
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
     )
   }
 
-  const filteredRequests =
-    user?.role === "administrator" ? requests : requests.filter((request) => request.requestedBy === user?.name)
+  if (!session) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Please sign in to access this page</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Filter requests based on user role
+  const filteredRequests = session.user.role === "ADMINISTRATOR" 
+    ? requests 
+    : requests.filter((request) => request.requestedBy.id === session.user.id)
 
   return (
     <DashboardLayout>
@@ -209,7 +294,10 @@ export default function PurchaseRequestsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddRequest}>Ajukan Permintaan</Button>
+                <Button onClick={handleAddRequest} disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ajukan Permintaan
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -231,7 +319,7 @@ export default function PurchaseRequestsPage() {
               <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "pending").length}</div>
+              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "PENDING").length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -240,7 +328,7 @@ export default function PurchaseRequestsPage() {
               <Check className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "approved").length}</div>
+              <div className="text-2xl font-bold">{filteredRequests.filter((r) => r.status === "APPROVED").length}</div>
             </CardContent>
           </Card>
         </div>
@@ -249,7 +337,7 @@ export default function PurchaseRequestsPage() {
           <CardHeader>
             <CardTitle>Daftar Permintaan</CardTitle>
             <CardDescription>
-              {user?.role === "administrator"
+              {session.user.role === "ADMINISTRATOR"
                 ? "Semua permintaan pembelian yang masuk"
                 : "Permintaan pembelian yang Anda ajukan"}
             </CardDescription>
@@ -263,7 +351,7 @@ export default function PurchaseRequestsPage() {
                   <TableHead>Pemohon</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Status</TableHead>
-                  {user?.role === "administrator" && <TableHead>Aksi</TableHead>}
+                  {session.user.role === "ADMINISTRATOR" && <TableHead>Aksi</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -273,12 +361,12 @@ export default function PurchaseRequestsPage() {
                     <TableCell>
                       {request.quantity} {request.unit}
                     </TableCell>
-                    <TableCell>{request.requestedBy}</TableCell>
+                    <TableCell>{request.requestedBy.name}</TableCell>
                     <TableCell>{new Date(request.requestDate).toLocaleDateString("id-ID")}</TableCell>
                     <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    {user?.role === "administrator" && (
+                    {session.user.role === "ADMINISTRATOR" && (
                       <TableCell>
-                        {request.status === "pending" && (
+                        {request.status === "PENDING" && (
                           <div className="flex items-center space-x-2">
                             <Button
                               variant="outline"
