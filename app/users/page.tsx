@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -19,85 +20,114 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Trash2, Shield } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { Plus, Trash2, Shield, Edit, Loader2, Key } from "lucide-react"
 
 interface UserInterface {
   id: string
   username: string
   name: string
-  role: "administrator" | "staff"
+  role: "ADMINISTRATOR" | "STAFF"
   email: string
   createdAt: string
   lastLogin?: string
-  status: "active" | "inactive"
+  status: "ACTIVE" | "INACTIVE"
+}
+
+interface UserStats {
+  totalUsers: number
+  adminCount: number
+  staffCount: number
+  activeUsers: number
+  inactiveUsers: number
 }
 
 export default function UsersPage() {
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [users, setUsers] = useState<UserInterface[]>([
-    {
-      id: "1",
-      username: "admin",
-      name: "Administrator",
-      role: "administrator",
-      email: "admin@unsrat.ac.id",
-      createdAt: "2024-01-01",
-      lastLogin: "2024-01-15",
-      status: "active",
-    },
-    {
-      id: "2",
-      username: "staff",
-      name: "Staff Tata Usaha",
-      role: "staff",
-      email: "staff@unsrat.ac.id",
-      createdAt: "2024-01-02",
-      lastLogin: "2024-01-14",
-      status: "active",
-    },
-  ])
-
+  const { data: session, status } = useSession()
+  const [users, setUsers] = useState<UserInterface[]>([])
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserInterface | null>(null)
+  const [passwordResetUser, setPasswordResetUser] = useState<UserInterface | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
   const [newUser, setNewUser] = useState({
     username: "",
     name: "",
-    role: "staff" as "administrator" | "staff",
+    role: "STAFF" as "ADMINISTRATOR" | "STAFF",
     email: "",
     password: "",
   })
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/")
+    if (status === "loading") return
+
+    if (!session) {
+      router.push("/auth/signin")
       return
     }
 
-    const user = JSON.parse(userData)
-    if (user.role !== "administrator") {
+    if (session.user.role !== "ADMINISTRATOR") {
       router.push("/dashboard")
       return
     }
 
-    setCurrentUser(user)
-  }, [router])
+    fetchUsers()
+    fetchUserStats()
+  }, [session, status, router])
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch("/api/users")
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+      const data = await response.json()
+      setUsers(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch("/api/users/stats")
+      if (!response.ok) {
+        throw new Error("Failed to fetch user statistics")
+      }
+      const data = await response.json()
+      setUserStats(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch user statistics",
+        variant: "destructive",
+      })
+    }
+  }
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case "administrator":
+      case "ADMINISTRATOR":
         return (
           <Badge variant="default">
             <Shield className="mr-1 h-3 w-3" />
             Administrator
           </Badge>
         )
-      case "staff":
+      case "STAFF":
         return (
           <Badge variant="secondary">
-            <Shield className="mr-1 h-3 w-3" />
             Staff
           </Badge>
         )
@@ -108,58 +138,265 @@ export default function UsersPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "active":
+      case "ACTIVE":
         return <Badge variant="default">Aktif</Badge>
-      case "inactive":
+      case "INACTIVE":
         return <Badge variant="secondary">Tidak Aktif</Badge>
       default:
         return <Badge variant="outline">Unknown</Badge>
     }
   }
 
-  const handleAddUser = () => {
-    const user: UserInterface = {
-      id: Date.now().toString(),
-      ...newUser,
-      createdAt: new Date().toISOString().split("T")[0],
-      status: "active",
+  const handleAddUser = async () => {
+    if (!newUser.username || !newUser.name || !newUser.email || !newUser.password) {
+      toast({
+        title: "Error",
+        description: "All fields are required",
+        variant: "destructive",
+      })
+      return
     }
 
-    setUsers([...users, user])
-    setNewUser({ username: "", name: "", role: "staff", email: "", password: "" })
-    setIsAddDialogOpen(false)
+    setIsSubmitting(true)
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newUser),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to create user")
+      }
+
+      const createdUser = await response.json()
+      setUsers([...users, createdUser])
+      setNewUser({ username: "", name: "", role: "STAFF", email: "", password: "" })
+      setIsAddDialogOpen(false)
+      await fetchUserStats()
+      
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create user",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editingUser) return
 
-    setUsers(users.map((user) => (user.id === editingUser.id ? editingUser : user)))
-    setEditingUser(null)
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: editingUser.username,
+          name: editingUser.name,
+          email: editingUser.email,
+          role: editingUser.role,
+          status: editingUser.status,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update user")
+      }
+
+      const updatedUser = await response.json()
+      setUsers(users.map((user) => (user.id === updatedUser.id ? updatedUser : user)))
+      setEditingUser(null)
+      await fetchUserStats()
+      
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update user",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleDeleteUser = (id: string) => {
-    if (id === currentUser?.id) {
-      alert("Tidak dapat menghapus akun sendiri")
+  const handleDeleteUser = async (id: string) => {
+    if (id === session?.user.id) {
+      toast({
+        title: "Error",
+        description: "Cannot delete your own account",
+        variant: "destructive",
+      })
       return
     }
-    setUsers(users.filter((user) => user.id !== id))
+
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete user")
+      }
+
+      const result = await response.json()
+      
+      if (result.user) {
+        // User was deactivated instead of deleted
+        setUsers(users.map((user) => (user.id === id ? result.user : user)))
+        toast({
+          title: "User Deactivated",
+          description: result.message,
+        })
+      } else {
+        // User was deleted
+        setUsers(users.filter((user) => user.id !== id))
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        })
+      }
+      
+      await fetchUserStats()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete user",
+        variant: "destructive",
+      })
+    }
   }
 
-  const toggleUserStatus = (id: string) => {
-    if (id === currentUser?.id) {
-      alert("Tidak dapat mengubah status akun sendiri")
+  const toggleUserStatus = async (id: string) => {
+    if (id === session?.user.id) {
+      toast({
+        title: "Error",
+        description: "Cannot change your own account status",
+        variant: "destructive",
+      })
       return
     }
 
-    setUsers(
-      users.map((user) =>
-        user.id === id ? { ...user, status: user.status === "active" ? "inactive" : "active" } : user,
-      ),
+    const user = users.find(u => u.id === id)
+    if (!user) return
+
+    const newStatus = user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"
+
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update user status")
+      }
+
+      const updatedUser = await response.json()
+      setUsers(users.map((user) => (user.id === updatedUser.id ? updatedUser : user)))
+      await fetchUserStats()
+      
+      toast({
+        title: "Success",
+        description: `User ${newStatus === "ACTIVE" ? "activated" : "deactivated"} successfully`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update user status",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!passwordResetUser || !newPassword) {
+      toast({
+        title: "Error",
+        description: "Password is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(`/api/users/${passwordResetUser.id}/password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: newPassword }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to reset password")
+      }
+
+      setPasswordResetUser(null)
+      setNewPassword("")
+      
+      toast({
+        title: "Success",
+        description: "Password reset successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to reset password",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (status === "loading" || loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
     )
-  }
-
-  if (!currentUser) {
-    return <div>Loading...</div>
   }
 
   return (
@@ -189,6 +426,7 @@ export default function UsersPage() {
                     id="username"
                     value={newUser.username}
                     onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -197,6 +435,7 @@ export default function UsersPage() {
                     id="name"
                     value={newUser.name}
                     onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -206,20 +445,22 @@ export default function UsersPage() {
                     type="email"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label>Role</Label>
                   <Select
                     value={newUser.role}
-                    onValueChange={(value: "administrator" | "staff") => setNewUser({ ...newUser, role: value })}
+                    onValueChange={(value: "ADMINISTRATOR" | "STAFF") => setNewUser({ ...newUser, role: value })}
+                    disabled={isSubmitting}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="administrator">Administrator</SelectItem>
+                      <SelectItem value="STAFF">Staff</SelectItem>
+                      <SelectItem value="ADMINISTRATOR">Administrator</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -230,11 +471,21 @@ export default function UsersPage() {
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddUser}>Tambah User</Button>
+                <Button onClick={handleAddUser} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Tambah User"
+                  )}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -247,7 +498,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{userStats?.totalUsers || users.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -256,7 +507,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.filter((u) => u.role === "administrator").length}</div>
+              <div className="text-2xl font-bold">{userStats?.adminCount || users.filter((u) => u.role === "ADMINISTRATOR").length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -265,7 +516,7 @@ export default function UsersPage() {
               <Shield className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{users.filter((u) => u.role === "staff").length}</div>
+              <div className="text-2xl font-bold">{userStats?.staffCount || users.filter((u) => u.role === "STAFF").length}</div>
             </CardContent>
           </Card>
         </div>
@@ -302,21 +553,28 @@ export default function UsersPage() {
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <Button variant="outline" size="sm" onClick={() => setEditingUser({ ...user })}>
-                          <Shield className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPasswordResetUser(user)}
+                        >
+                          <Key className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => toggleUserStatus(user.id)}
-                          disabled={user.id === currentUser?.id}
+                          disabled={user.id === session?.user.id}
                         >
-                          {user.status === "active" ? "Nonaktifkan" : "Aktifkan"}
+                          {user.status === "ACTIVE" ? "Nonaktifkan" : "Aktifkan"}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteUser(user.id)}
-                          disabled={user.id === currentUser?.id}
+                          disabled={user.id === session?.user.id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -344,6 +602,7 @@ export default function UsersPage() {
                     id="edit-username"
                     value={editingUser.username}
                     onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -352,6 +611,7 @@ export default function UsersPage() {
                     id="edit-name"
                     value={editingUser.name}
                     onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -361,29 +621,108 @@ export default function UsersPage() {
                     type="email"
                     value={editingUser.email}
                     onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label>Role</Label>
                   <Select
                     value={editingUser.role}
-                    onValueChange={(value: "administrator" | "staff") =>
+                    onValueChange={(value: "ADMINISTRATOR" | "STAFF") =>
                       setEditingUser({ ...editingUser, role: value })
                     }
+                    disabled={isSubmitting}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="administrator">Administrator</SelectItem>
+                      <SelectItem value="STAFF">Staff</SelectItem>
+                      <SelectItem value="ADMINISTRATOR">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={editingUser.status}
+                    onValueChange={(value: "ACTIVE" | "INACTIVE") =>
+                      setEditingUser({ ...editingUser, status: value })
+                    }
+                    disabled={isSubmitting || editingUser.id === session?.user.id}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             )}
             <DialogFooter>
-              <Button onClick={handleEditUser}>Simpan Perubahan</Button>
+              <Button onClick={handleEditUser} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Simpan Perubahan"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Reset Dialog */}
+        <Dialog open={!!passwordResetUser} onOpenChange={() => {
+          setPasswordResetUser(null)
+          setNewPassword("")
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+              <DialogDescription>
+                Reset password untuk user: {passwordResetUser?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">Password Baru</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  placeholder="Masukkan password baru"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPasswordResetUser(null)
+                  setNewPassword("")
+                }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleResetPassword} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  "Reset Password"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
