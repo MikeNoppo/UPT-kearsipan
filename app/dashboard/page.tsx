@@ -10,11 +10,16 @@ import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingD
 export default function DashboardPage() {
   const { data: session } = useSession()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+  const [activities, setActivities] = useState<{
+    inventoryActivities: any[]
+    letterArchiveActivities: any[]
+  } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (session) {
       fetchStats()
+      fetchActivities()
     }
   }, [session])
 
@@ -34,8 +39,39 @@ export default function DashboardPage() {
     }
   }
 
+  const fetchActivities = async () => {
+    try {
+      const response = await fetch('/api/dashboard/activities')
+      if (response.ok) {
+        const data = await response.json()
+        setActivities(data)
+      } else {
+        console.error('Failed to fetch activities')
+      }
+    } catch (error) {
+      console.error('Error fetching activities:', error)
+    }
+  }
+
   if (!session || loading) {
     return <div>Loading...</div>
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING': return 'Pending'
+      case 'APPROVED': return 'Disetujui'
+      case 'REJECTED': return 'Ditolak'
+      case 'COMPLETE': return 'Selesai'
+      case 'PARTIAL': return 'Sebagian'
+      case 'DIFFERENT': return 'Berbeda'
+      case 'PERMANENT': return 'Permanen'
+      case 'SCHEDULED_DESTRUCTION': return 'Dijadwalkan Musnah'
+      case 'UNDER_REVIEW': return 'Dalam Review'
+      case 'NEEDS_DOCUMENT': return 'Perlu Dokumen'
+      case 'NEEDS_REVIEW': return 'Perlu Review'
+      default: return status
+    }
   }
 
   const statsConfig = [
@@ -145,27 +181,19 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Permintaan kertas A4 - Pending</p>
-                    <p className="text-xs text-muted-foreground">Diajukan 2 jam yang lalu</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Penerimaan tinta printer - Selesai</p>
-                    <p className="text-xs text-muted-foreground">Diterima 4 jam yang lalu</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Distribusi alat tulis - Selesai</p>
-                    <p className="text-xs text-muted-foreground">Diambil 1 hari yang lalu</p>
-                  </div>
-                </div>
+                {activities && activities.inventoryActivities && activities.inventoryActivities.length > 0 ? (
+                  activities.inventoryActivities.map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <div className={`w-2 h-2 ${activity.color} rounded-full`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.title} - {getStatusText(activity.status)}</p>
+                        <p className="text-xs text-muted-foreground">{activity.description}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground">Tidak ada aktivitas terbaru</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -177,27 +205,19 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Surat masuk dari Fakultas Teknik</p>
-                    <p className="text-xs text-muted-foreground">Perlu upload dokumen</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">45 arsip dijadwalkan musnah</p>
-                    <p className="text-xs text-muted-foreground">Review dalam 7 hari</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Arsip permanen diperbarui</p>
-                    <p className="text-xs text-muted-foreground">Status dikonfirmasi</p>
-                  </div>
-                </div>
+                {activities && activities.letterArchiveActivities && activities.letterArchiveActivities.length > 0 ? (
+                  activities.letterArchiveActivities.map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <div className={`w-2 h-2 ${activity.color} rounded-full`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground">{activity.description}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground">Tidak ada aktivitas terbaru</div>
+                )}
               </div>
             </CardContent>
           </Card>
