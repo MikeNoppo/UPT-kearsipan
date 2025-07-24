@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
@@ -53,7 +53,7 @@ export default function ArchiveInventoryPage() {
     notes: "",
   })
 
-  const fetchArchives = async () => {
+  const fetchArchives = useCallback(async () => {
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -79,7 +79,7 @@ export default function ArchiveInventoryPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, searchTerm, categoryFilter, statusFilter, toast])
 
   const fetchArchiveStats = async () => {
     try {
@@ -108,7 +108,13 @@ export default function ArchiveInventoryPage() {
 
     fetchArchives()
     fetchArchiveStats()
-  }, [session, status])
+  }, [session, status, fetchArchives])
+
+  useEffect(() => {
+    if (session) {
+      fetchArchives()
+    }
+  }, [fetchArchives, session])
 
   const handleAddArchive = async () => {
     if (!newArchive.code || !newArchive.title || !newArchive.category || 
@@ -274,6 +280,7 @@ export default function ArchiveInventoryPage() {
 
   const handleSearch = () => {
     setCurrentPage(1)
+    setLoading(true)
     fetchArchives()
   }
 
@@ -282,11 +289,31 @@ export default function ArchiveInventoryPage() {
     setCategoryFilter("all")
     setStatusFilter("all")
     setCurrentPage(1)
+    setLoading(true)
   }
 
   const categories = [...new Set(archives.map(a => a.category))].filter(Boolean)
 
   if (status === "loading" || loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!session) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p>Please sign in to access this page</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -769,5 +796,4 @@ export default function ArchiveInventoryPage() {
       </div>
     </DashboardLayout>
   )
-}
 }
