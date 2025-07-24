@@ -108,7 +108,7 @@ export default function CorrespondencePage() {
 
     fetchLetters()
     fetchLetterStats()
-  }, [session, status, router, fetchLetters, fetchLetterStats])
+  }, [session, status, router])
 
   const handleAddLetter = async () => {
     if (!newLetter.number || !newLetter.subject || !newLetter.date) {

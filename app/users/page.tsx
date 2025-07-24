@@ -114,7 +114,7 @@ export default function UsersPage() {
 
     fetchUsers()
     fetchUserStats()
-  }, [session, status, router, fetchUsers, fetchUserStats])
+  }, [session, status, router])
 
   const getRoleBadge = (role: string) => {
     switch (role) {

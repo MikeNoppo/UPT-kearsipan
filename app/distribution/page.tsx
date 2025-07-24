@@ -186,7 +186,7 @@ export default function DistributionPage() {
     fetchDistributions()
     fetchDistributionStats()
     fetchInventoryItems()
-  }, [session, status, router, fetchDistributions, fetchDistributionStats, fetchInventoryItems])
+  }, [session, status, router])
 
   const handleAddDistribution = async () => {
     if (!newDistribution.itemName || !newDistribution.staffName || 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
@@ -53,7 +53,7 @@ export default function ArchiveInventoryPage() {
     notes: "",
   })
 
-  const fetchArchives = useCallback(async () => {
+  const fetchArchives = async () => {
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -79,9 +79,9 @@ export default function ArchiveInventoryPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchTerm, categoryFilter, statusFilter, toast])
+  }
 
-  const fetchArchiveStats = useCallback(async () => {
+  const fetchArchiveStats = async () => {
     try {
       const response = await fetch("/api/archives/stats?period=month")
       if (!response.ok) {
@@ -96,7 +96,7 @@ export default function ArchiveInventoryPage() {
         variant: "destructive",
       })
     }
-  }, [toast])
+  }
 
   useEffect(() => {
     if (status === "loading") return
@@ -108,7 +108,7 @@ export default function ArchiveInventoryPage() {
 
     fetchArchives()
     fetchArchiveStats()
-  }, [session, status, router, fetchArchives, fetchArchiveStats])
+  }, [session, status])
 
   const handleAddArchive = async () => {
     if (!newArchive.code || !newArchive.title || !newArchive.category || 
