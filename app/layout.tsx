@@ -8,6 +8,11 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Sistem Kearsipan UPT',
   description: 'Sistem Informasi Kearsipan UPT',
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
 }
 
 export default function RootLayout({
@@ -18,6 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="shortcut icon" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
