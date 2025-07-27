@@ -12,13 +12,13 @@ interface Activity {
 
 export async function GET() {
   try {
-    // Get recent activities (last 7 days)
+    // Setup filter untuk aktivitas 7 hari terakhir
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-    // Get recent inventory workflow activities
+    // Mengambil aktivitas workflow inventaris terbaru secara paralel
     const [recentPurchaseRequests, recentReceptions, recentDistributions] = await Promise.all([
-      // Recent purchase requests
+      // Query permintaan pembelian terbaru dengan join user data
       prisma.purchaseRequest.findMany({
         where: {
           createdAt: { gte: sevenDaysAgo }
@@ -32,7 +32,7 @@ export async function GET() {
         take: 3
       }),
       
-      // Recent receptions
+      // Query penerimaan barang terbaru dengan join user data
       prisma.reception.findMany({
         where: {
           receiptDate: { gte: sevenDaysAgo }
@@ -46,7 +46,7 @@ export async function GET() {
         take: 3
       }),
       
-      // Recent distributions
+      // Query distribusi barang terbaru dengan join user data
       prisma.distribution.findMany({
         where: {
           distributionDate: { gte: sevenDaysAgo }
@@ -61,9 +61,9 @@ export async function GET() {
       })
     ])
 
-    // Get recent letter and archive activities
+    // Mengambil aktivitas surat dan arsip yang memerlukan perhatian
     const [recentLetters, recentArchives, scheduledDestructionArchives] = await Promise.all([
-      // Recent letters (need document upload)
+      // Query surat yang belum upload dokumen
       prisma.letter.findMany({
         where: {
           hasDocument: false,
@@ -78,7 +78,7 @@ export async function GET() {
         take: 2
       }),
       
-      // Recent archives
+      // Query arsip yang baru diupdate
       prisma.archive.findMany({
         where: {
           updatedAt: { gte: sevenDaysAgo }
@@ -92,7 +92,7 @@ export async function GET() {
         take: 2
       }),
       
-      // Archives scheduled for destruction (need review)
+      // Query arsip yang dijadwalkan musnah dalam 7 hari (perlu review)
       prisma.archive.findMany({
         where: {
           status: 'SCHEDULED_DESTRUCTION',
@@ -108,7 +108,7 @@ export async function GET() {
     // Format inventory workflow activities
     const inventoryActivities: Activity[] = []
 
-    // Add purchase requests
+    // Transformasi data permintaan pembelian ke format activity
     recentPurchaseRequests.forEach(request => {
       inventoryActivities.push({
         id: request.id,
@@ -121,7 +121,7 @@ export async function GET() {
       })
     })
 
-    // Add receptions
+    // Transformasi data penerimaan barang ke format activity
     recentReceptions.forEach(reception => {
       inventoryActivities.push({
         id: reception.id,
@@ -134,7 +134,7 @@ export async function GET() {
       })
     })
 
-    // Add distributions
+    // Transformasi data distribusi barang ke format activity
     recentDistributions.forEach(distribution => {
       inventoryActivities.push({
         id: distribution.id,

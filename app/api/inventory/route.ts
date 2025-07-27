@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// GET endpoint untuk mengambil semua item inventaris
 export async function GET() {
   try {
+    // Query item inventaris dengan join transaksi stok terbaru
     const items = await prisma.inventoryItem.findMany({
       include: {
         stockTransactions: {
@@ -36,15 +38,19 @@ export async function GET() {
   }
 }
 
+// POST endpoint untuk menambah item inventaris baru
 export async function POST(request: NextRequest) {
   try {
+    // Parse request body dari client
     const body = await request.json()
     const { name, category, unit, stock, minStock } = body
 
+    // Validasi field yang wajib diisi
     if (!name || !category || !unit) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Create item baru di database
     const newItem = await prisma.inventoryItem.create({
       data: {
         name,

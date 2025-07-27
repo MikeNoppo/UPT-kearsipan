@@ -4,9 +4,10 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
-// GET /api/users - Get all users
+// GET endpoint untuk mengambil semua data pengguna
 export async function GET() {
   try {
+    // Verifikasi session dan authorization level administrator
     const session = await getServerSession(authOptions)
     
     if (!session || session.user.role !== "ADMINISTRATOR") {
@@ -16,6 +17,7 @@ export async function GET() {
       )
     }
 
+    // Query semua user dengan select fields tertentu untuk keamanan
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -43,9 +45,10 @@ export async function GET() {
   }
 }
 
-// POST /api/users - Create new user
+// POST endpoint untuk membuat pengguna baru
 export async function POST(request: NextRequest) {
   try {
+    // Verifikasi session dan authorization level administrator
     const session = await getServerSession(authOptions)
     
     if (!session || session.user.role !== "ADMINISTRATOR") {
@@ -55,10 +58,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Parse request body dari client
     const body = await request.json()
     const { username, name, email, password, role } = body
 
-    // Validate required fields
+    // Validasi field yang wajib diisi
     if (!username || !name || !email || !password || !role) {
       return NextResponse.json(
         { error: "All fields are required" },
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate role
+    // Validasi enum role yang diizinkan
     if (!["ADMINISTRATOR", "STAFF"].includes(role)) {
       return NextResponse.json(
         { error: "Invalid role. Must be ADMINISTRATOR or STAFF" },
@@ -74,7 +78,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if username already exists
+    // Cek duplikasi username dalam database
     const existingUserByUsername = await prisma.user.findUnique({
       where: { username }
     })
@@ -86,7 +90,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if email already exists
+    // Cek duplikasi email dalam database
     const existingUserByEmail = await prisma.user.findUnique({
       where: { email }
     })
@@ -98,10 +102,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Hash password
+    // Hash password menggunakan bcrypt untuk keamanan
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
+    // Create user baru dengan data yang sudah divalidasi
     const newUser = await prisma.user.create({
       data: {
         username,

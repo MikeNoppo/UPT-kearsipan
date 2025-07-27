@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
+    // Setup tanggal awal bulan ini untuk filter periode
     const currentMonth = new Date()
     currentMonth.setDate(1)
     currentMonth.setHours(0, 0, 0, 0)
 
-    // Get various stats
+    // Mengambil berbagai statistik secara paralel menggunakan Promise.all untuk performa optimal
     const [
       pendingRequests,
       receivedThisMonth,

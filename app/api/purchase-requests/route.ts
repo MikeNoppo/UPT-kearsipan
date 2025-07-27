@@ -14,35 +14,40 @@ const createPurchaseRequestSchema = z.object({
   notes: z.string().optional(),
 });
 
-// GET /api/purchase-requests - Get all purchase requests
+// GET endpoint untuk mengambil semua permintaan pembelian
 export async function GET(request: NextRequest) {
   try {
+    // Verifikasi autentikasi user session
     const session = await getServerSession(authOptions);
 
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Parsing parameter query untuk pagination dan filter
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
+    // Rumus pagination offset
     const skip = (page - 1) * limit;
 
-    // Build where clause
+    // Build where clause dengan logic authorization
     const where: Record<string, unknown> = {};
 
-    // Only staff can see their own requests, admins can see all
+    // Role-based access: Staff hanya lihat permintaan sendiri, Admin lihat semua
     if (session.user.role === 'STAFF') {
       where.requestedById = session.user.id;
     }
 
+    // Filter berdasarkan status permintaan
     if (status && status !== 'ALL') {
       where.status = status;
     }
 
+    // Filter pencarian teks multi-kolom menggunakan OR condition
     if (search) {
       where.OR = [
         { itemName: { contains: search, mode: 'insensitive' } },
@@ -51,6 +56,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Query database dengan join relasi menggunakan Promise.all untuk performa
     const [purchaseRequests, total] = await Promise.all([
       prisma.purchaseRequest.findMany({
         where,
@@ -103,9 +109,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/purchase-requests - Create new purchase request
+// POST endpoint untuk membuat permintaan pembelian baru
 export async function POST(request: NextRequest) {
   try {
+    // Verifikasi autentikasi user session
     const session = await getServerSession(authOptions);
 
     if (!session) {

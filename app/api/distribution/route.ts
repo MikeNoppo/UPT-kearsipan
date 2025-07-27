@@ -17,24 +17,26 @@ const distributionSchema = z.object({
   itemId: z.string().optional(),
 })
 
-// Helper function to generate next note number
+// Helper function untuk generate nomor nota distribusi otomatis
 async function generateNoteNumber(): Promise<string> {
   try {
-    // Get the last distribution ordered by creation date
+    // Query distribusi terakhir berdasarkan tanggal pembuatan
     const lastDistribution = await prisma.distribution.findFirst({
       orderBy: { createdAt: "desc" },
       select: { noteNumber: true }
     })
 
+    // Jika belum ada distribusi, mulai dari DST-001
     if (!lastDistribution) {
       return "DST-001"
     }
 
     const lastNoteNumber = lastDistribution.noteNumber
-    // Extract number from note number format DST-XXX
+    // Extract angka dari format nomor nota DST-XXX menggunakan regex
     const match = lastNoteNumber.match(/DST-(\d+)/)
     
     if (match) {
+      // Rumus increment: nomor terakhir + 1 dengan padding zero
       const lastNumber = parseInt(match[1])
       const nextNumber = lastNumber + 1
       return `DST-${nextNumber.toString().padStart(3, '0')}`
@@ -50,14 +52,16 @@ async function generateNoteNumber(): Promise<string> {
   }
 }
 
-// GET /api/distribution - Fetch all distributions
+// GET endpoint untuk mengambil semua data distribusi
 export async function GET(request: NextRequest) {
   try {
+    // Verifikasi autentikasi user session
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parsing parameter query untuk pagination dan filter
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
@@ -66,11 +70,13 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
 
+    // Rumus pagination offset
     const skip = (page - 1) * limit
 
-    // Build where clause for filtering
+    // Build where clause untuk filtering database
     const where: any = {}
     
+    // Filter pencarian teks multi-kolom menggunakan OR condition
     if (search) {
       where.OR = [
         { noteNumber: { contains: search, mode: "insensitive" } },

@@ -18,14 +18,16 @@ const createLetterSchema = z.object({
   documentPath: z.string().optional(),
 })
 
-// GET /api/letters - Fetch all letters with pagination and filtering
+// GET endpoint untuk mengambil semua surat dengan pagination dan filtering
 export async function GET(request: NextRequest) {
   try {
+    // Verifikasi autentikasi user session
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parsing parameter query dari URL untuk pagination dan filter
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
@@ -39,9 +41,10 @@ export async function GET(request: NextRequest) {
     // Formula untuk menentukan offset data dalam pagination database
     const skip = (page - 1) * limit
 
-    // Build where clause
+    // Build where clause untuk filtering database
     const where: any = {}
 
+    // Filter pencarian teks di multiple kolom menggunakan OR
     if (search) {
       where.OR = [
         { number: { contains: search, mode: "insensitive" } },
@@ -51,14 +54,17 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Filter berdasarkan jenis surat (INCOMING/OUTGOING)
     if (type) {
       where.type = type
     }
 
+    // Filter berdasarkan status surat
     if (status) {
       where.status = status
     }
 
+    // Filter berdasarkan rentang tanggal dengan conditional logic
     if (startDate && endDate) {
       where.date = {
         gte: new Date(startDate),
@@ -74,7 +80,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get letters with pagination
+    // Query surat dengan pagination menggunakan Promise.all untuk performa
     const [letters, totalCount] = await Promise.all([
       prisma.letter.findMany({
         where,
@@ -118,17 +124,19 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/letters - Create new letter
+// POST endpoint untuk membuat surat baru
 export async function POST(request: NextRequest) {
   try {
+    // Verifikasi autentikasi dan validasi user ID
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parse request body dari client
     const body = await request.json()
 
-    // Validate input
+    // Validasi input menggunakan Zod schema
     const validationResult = createLetterSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
@@ -139,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     const data = validationResult.data
 
-    // Check if letter number already exists
+    // Cek duplikasi nomor surat dalam database
     const existingLetter = await prisma.letter.findUnique({
       where: { number: data.number },
     })

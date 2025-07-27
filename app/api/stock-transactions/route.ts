@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// POST endpoint untuk membuat transaksi stok (IN/OUT)
 export async function POST(request: NextRequest) {
   try {
+    // Parse request body dari client
     const body = await request.json()
     const { itemId, type, quantity, description, userId } = body
 
+    // Validasi field yang wajib diisi
     if (!itemId || !type || !quantity || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Start a transaction to update stock and create transaction record
+    // Database transaction untuk memastikan konsistensi data
     const result = await prisma.$transaction(async (tx) => {
-      // Get current item
+      // Query item inventaris yang akan diupdate
       const item = await tx.inventoryItem.findUnique({
         where: { id: itemId }
       })
@@ -32,13 +35,13 @@ export async function POST(request: NextRequest) {
         throw new Error('Insufficient stock')
       }
 
-      // Update item stock
+      // Update stok item di database
       await tx.inventoryItem.update({
         where: { id: itemId },
         data: { stock: newStock }
       })
 
-      // Create transaction record
+      // Create record transaksi untuk audit trail
       const transaction = await tx.stockTransaction.create({
         data: {
           itemId,
