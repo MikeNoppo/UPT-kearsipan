@@ -23,6 +23,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Package, CheckCircle, AlertCircle, Search, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+/**
+ * Reception Page - Halaman penerimaan barang
+ * 
+ * Fungsi utama:
+ * - Mencatat penerimaan barang yang telah dipesan
+ * - Memverifikasi kesesuaian antara barang yang dipesan vs diterima
+ * - Update stok inventaris secara otomatis setelah penerimaan
+ * - Tracking supplier dan tanggal penerimaan
+ * 
+ * Status penerimaan yang dikelola:
+ * - COMPLETE: Barang diterima sesuai jumlah yang dipesan
+ * - PARTIAL: Barang diterima lebih sedikit dari yang dipesan
+ * - DIFFERENT: Barang yang diterima berbeda dengan yang dipesan
+ * 
+ * Fitur yang tersedia:
+ * - Form penerimaan barang dengan detail lengkap
+ * - Validasi quantity yang diterima vs yang diminta
+ * - Integrasi dengan inventory untuk update stok otomatis
+ * - Statistik penerimaan (completion rate, dll)
+ * - Pencarian dan filter penerimaan
+ * - Catatan untuk setiap penerimaan barang
+ */
+
 interface Reception {
   id: string
   requestId?: string
@@ -68,6 +91,7 @@ interface InventoryItem {
 export default function ReceptionPage() {
   const { data: session, status } = useSession()
   const { toast } = useToast()
+  // State untuk data penerimaan dan statistik
   const [receptions, setReceptions] = useState<Reception[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [stats, setStats] = useState<ReceptionStats>({
@@ -82,6 +106,7 @@ export default function ReceptionPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
 
+  // Data form untuk penerimaan baru
   const [newReception, setNewReception] = useState({
     requestId: "",
     itemName: "",
@@ -95,7 +120,7 @@ export default function ReceptionPage() {
     itemId: "",
   })
 
-  // Fetch receptions from API
+  // Mengambil data penerimaan dari API
   const fetchReceptions = async () => {
     try {
       setLoading(true)
@@ -119,7 +144,7 @@ export default function ReceptionPage() {
     }
   }
 
-  // Fetch statistics
+  // Mengambil statistik penerimaan
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/reception/stats')
@@ -141,7 +166,7 @@ export default function ReceptionPage() {
     }
   }
 
-  // Fetch inventory items for selection
+  // Mengambil daftar inventaris untuk pilihan item
   const fetchInventory = async () => {
     try {
       const response = await fetch('/api/inventory')
@@ -157,6 +182,7 @@ export default function ReceptionPage() {
     }
   }
 
+  // Load data saat session tersedia
   useEffect(() => {
     if (session) {
       fetchReceptions()
@@ -165,6 +191,7 @@ export default function ReceptionPage() {
     }
   }, [session])
 
+  // Filter penerimaan berdasarkan pencarian
   const filteredReceptions = receptions.filter(
     (reception) =>
       reception.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,6 +199,7 @@ export default function ReceptionPage() {
       (reception.requestId && reception.requestId.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
+  // Fungsi untuk menentukan badge status penerimaan
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "COMPLETE":

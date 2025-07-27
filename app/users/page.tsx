@@ -23,6 +23,44 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Plus, Trash2, Shield, Edit, Loader2, Key } from "lucide-react"
 
+/**
+ * Users Management Page - Halaman manajemen pengguna sistem
+ * 
+ * Fungsi utama:
+ * - Mengelola akun pengguna sistem kearsipan UPT
+ * - Mengatur role dan permission user (Administrator/Staff)
+ * - Monitoring aktivitas dan status login user
+ * - CRUD operations untuk data user
+ * 
+ * Role yang tersedia:
+ * - ADMINISTRATOR: Full access ke semua fitur sistem termasuk approval, user management
+ * - STAFF: Access terbatas untuk input data, tidak bisa approval dan user management
+ * 
+ * Status user yang dikelola:
+ * - ACTIVE: User aktif dapat login dan menggunakan sistem
+ * - INACTIVE: User non-aktif tidak dapat login
+ * 
+ * Fitur yang tersedia:
+ * - Tambah user baru dengan validasi username unik
+ * - Edit informasi user (nama, email, role, status)
+ * - Reset password user
+ * - Aktivasi/deaktivasi akun user
+ * - Monitoring last login dan statistik user
+ * - Filter dan search user
+ * 
+ * Data yang dikelola:
+ * - Username dan password (encrypted)
+ * - Nama lengkap dan email
+ * - Role/level akses
+ * - Status aktif/non-aktif
+ * - Timestamp pembuatan akun dan last login
+ * 
+ * Keamanan:
+ * - Hanya Administrator yang dapat mengakses halaman ini
+ * - Password di-hash dengan secure algorithm
+ * - Session management untuk tracking login
+ */
+
 interface UserInterface {
   id: string
   username: string
@@ -55,6 +93,7 @@ export default function UsersPage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  // Data form untuk user baru
   const [newUser, setNewUser] = useState({
     username: "",
     name: "",
@@ -63,6 +102,7 @@ export default function UsersPage() {
     password: "",
   })
 
+  // Mengambil daftar pengguna dari API
   const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch("/api/users")
@@ -82,6 +122,7 @@ export default function UsersPage() {
     }
   }, [toast])
 
+  // Mengambil statistik pengguna
   const fetchUserStats = useCallback(async () => {
     try {
       const response = await fetch("/api/users/stats")
@@ -99,6 +140,7 @@ export default function UsersPage() {
     }
   }, [toast])
 
+  // Cek authentication dan authorization saat komponen mount
   useEffect(() => {
     if (status === "loading") return
 
@@ -116,6 +158,7 @@ export default function UsersPage() {
     fetchUserStats()
   }, [session, status, router])
 
+  // Fungsi untuk menentukan badge role user
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "ADMINISTRATOR":
@@ -136,6 +179,7 @@ export default function UsersPage() {
     }
   }
 
+  // Fungsi untuk menentukan badge status user
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ACTIVE":

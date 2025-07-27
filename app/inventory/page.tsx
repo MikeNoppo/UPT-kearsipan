@@ -21,6 +21,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Trash2, Package, TrendingUp, TrendingDown } from "lucide-react"
 
+/**
+ * Inventory Management Page - Halaman manajemen inventaris barang
+ * 
+ * Fungsi utama:
+ * - Mengelola daftar barang inventaris UPT
+ * - Menambah barang baru ke inventaris dengan informasi lengkap
+ * - Memantau stok barang dan status ketersediaan (normal/low/critical)
+ * - Melakukan transaksi stok (barang masuk/keluar)
+ * - Filter dan pencarian barang berdasarkan nama dan kategori
+ * 
+ * Fitur yang tersedia:
+ * - CRUD operasi untuk item inventaris
+ * - Kategorisasi barang (Alat Tulis, Elektronik, Furniture, Konsumsi)
+ * - Sistem alert untuk stok minimum
+ * - Transaksi stok dengan keterangan
+ * - Pencarian dan filter real-time
+ * 
+ * Data yang dikelola:
+ * - Nama barang, kategori, satuan
+ * - Jumlah stok aktual dan minimum
+ * - Status ketersediaan otomatis
+ * - Riwayat transaksi stok
+ */
+
 interface InventoryItem {
   id: string
   name: string
@@ -52,11 +76,12 @@ export default function InventoryPage() {
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
 
-  // Fetch items from API
+  // Memuat daftar inventaris saat komponen dimount
   useEffect(() => {
     fetchItems()
   }, [])
 
+  // Mengambil data inventaris dari API
   const fetchItems = async () => {
     try {
       const response = await fetch('/api/inventory')
@@ -71,6 +96,7 @@ export default function InventoryPage() {
     }
   }
 
+  // Data form untuk item baru
   const [newItem, setNewItem] = useState({
     name: "",
     category: "",
@@ -79,6 +105,7 @@ export default function InventoryPage() {
     minStock: 0,
   })
 
+  // Data form untuk transaksi stok
   const [stockTransaction, setStockTransaction] = useState({
     type: "in" as "in" | "out",
     quantity: 0,
@@ -87,12 +114,14 @@ export default function InventoryPage() {
 
   const categories = ["Alat Tulis", "Elektronik", "Furniture", "Konsumsi"]
 
+  // Filter inventaris berdasarkan pencarian dan kategori
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
     return matchesSearch && matchesCategory
   })
 
+  // Fungsi untuk menentukan badge status stok
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "critical":
@@ -104,6 +133,7 @@ export default function InventoryPage() {
     }
   }
 
+  // Menambah item baru ke inventaris
   const handleAddItem = async () => {
     try {
       const response = await fetch('/api/inventory', {
@@ -126,6 +156,7 @@ export default function InventoryPage() {
     }
   }
 
+  // Memproses transaksi stok (barang masuk/keluar)
   const handleStockTransaction = async () => {
     if (!selectedItem || !session?.user?.id) return
 
@@ -159,6 +190,7 @@ export default function InventoryPage() {
     }
   }
 
+  // Menghapus item dari inventaris
   const handleDeleteItem = async (id: string) => {
     try {
       const response = await fetch(`/api/inventory/${id}`, {

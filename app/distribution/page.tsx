@@ -34,6 +34,36 @@ import {
   Calendar
 } from "lucide-react"
 
+/**
+ * Distribution Page - Halaman distribusi/pengeluaran barang
+ * 
+ * Fungsi utama:
+ * - Mengelola pengeluaran barang dari inventaris ke staff/department
+ * - Mencatat siapa yang menerima barang dan untuk keperluan apa
+ * - Generate nomor nota distribusi otomatis
+ * - Update stok inventaris secara real-time saat distribusi
+ * 
+ * Fitur yang tersedia:
+ * - Form distribusi dengan validasi stok
+ * - Tracking penerima, department, dan tujuan penggunaan
+ * - Sistem nomor nota otomatis untuk audit trail
+ * - Filter berdasarkan department dan tanggal
+ * - Statistik distribusi per department dan item
+ * - Pagination untuk handling data besar
+ * 
+ * Data yang dicatat:
+ * - Nomor nota distribusi
+ * - Nama staff penerima dan department
+ * - Barang yang didistribusikan dan jumlahnya
+ * - Tanggal distribusi dan tujuan penggunaan
+ * - Catatan tambahan jika diperlukan
+ * 
+ * Kontrol yang tersedia:
+ * - Edit dan delete distribusi (untuk koreksi)
+ * - Search dan filter advanced
+ * - Export data untuk reporting
+ */
+
 interface Distribution {
   id: string
   noteNumber: string
@@ -85,6 +115,7 @@ interface InventoryItem {
 
 export default function DistributionPage() {
   const { data: session, status } = useSession()
+  // State untuk data distribusi dan statistik
   const [distributions, setDistributions] = useState<Distribution[]>([])
   const [distributionStats, setDistributionStats] = useState<DistributionStats | null>(null)
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
@@ -100,6 +131,7 @@ export default function DistributionPage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  // Data form untuk distribusi baru
   const [newDistribution, setNewDistribution] = useState({
     itemName: "",
     quantity: 1,
@@ -112,6 +144,7 @@ export default function DistributionPage() {
     itemId: "",
   })
 
+  // Mengambil data distribusi dengan filter dan pagination
   const fetchDistributions = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -141,6 +174,7 @@ export default function DistributionPage() {
     }
   }, [currentPage, searchTerm, departmentFilter, dateRange, toast])
 
+  // Mengambil statistik distribusi
   const fetchDistributionStats = useCallback(async () => {
     try {
       const response = await fetch("/api/distribution/stats?period=month")

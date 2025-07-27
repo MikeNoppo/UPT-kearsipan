@@ -7,6 +7,25 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown, ExternalLink } from "lucide-react"
 
+/**
+ * Dashboard Page - Halaman utama dashboard setelah login
+ * 
+ * Fungsi utama:
+ * - Menampilkan ringkasan statistik sistem kearsipan UPT dalam bentuk kartu-kartu
+ * - Menampilkan aktivitas terbaru untuk inventaris dan surat/arsip
+ * - Memberikan navigasi cepat ke berbagai modul sistem
+ * 
+ * Statistik yang ditampilkan:
+ * - Permintaan barang yang masih pending
+ * - Barang yang diterima dan keluar bulan ini
+ * - Total inventaris aktif
+ * - Surat masuk dan keluar bulan ini
+ * - Status arsip (permanen dan yang dijadwalkan musnah)
+ * 
+ * Aktivitas yang dipantau:
+ * - Alur kerja inventaris (status permintaan dan penerimaan)
+ * - Aktivitas surat dan arsip yang memerlukan perhatian
+ */
 export default function DashboardPage() {
   const { data: session } = useSession()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
@@ -16,6 +35,7 @@ export default function DashboardPage() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Memuat data dashboard saat komponen dimount atau session berubah
   useEffect(() => {
     if (session) {
       fetchStats()
@@ -23,6 +43,7 @@ export default function DashboardPage() {
     }
   }, [session])
 
+  // Mengambil data statistik dashboard dari API
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/dashboard/stats')
@@ -39,6 +60,7 @@ export default function DashboardPage() {
     }
   }
 
+  // Mengambil data aktivitas terbaru dari API
   const fetchActivities = async () => {
     try {
       const response = await fetch('/api/dashboard/activities')
@@ -57,6 +79,7 @@ export default function DashboardPage() {
     return <div>Loading...</div>
   }
 
+  // Fungsi untuk mengkonversi status enum ke teks yang dapat dibaca
   const getStatusText = (status: string) => {
     switch (status) {
       case 'PENDING': return 'Pending'
@@ -74,6 +97,7 @@ export default function DashboardPage() {
     }
   }
 
+  // Konfigurasi kartu-kartu statistik yang akan ditampilkan di dashboard
   const statsConfig = [
     {
       title: "Permintaan Pending",

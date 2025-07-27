@@ -25,6 +25,41 @@ import { useToast } from "@/hooks/use-toast"
 import { Plus, Search, Edit, Trash2, Archive as ArchiveIcon, Calendar, AlertTriangle, Loader2, Filter } from "lucide-react"
 import type { Archive, ArchiveStats, CreateArchiveData } from "@/types/archive"
 
+/**
+ * Archive Inventory Page - Halaman inventarisasi arsip
+ * 
+ * Fungsi utama:
+ * - Mengelola inventarisasi dokumen arsip UPT
+ * - Tracking masa retensi dokumen dan jadwal pemusnahan
+ * - Kategorisasi dokumen berdasarkan jenis dan nilai guna
+ * - Monitoring status arsip dari review hingga pemusnahan
+ * 
+ * Status arsip yang dikelola:
+ * - UNDER_REVIEW: Arsip sedang dalam proses review untuk penentuan nilai guna
+ * - PERMANENT: Arsip dengan nilai guna permanen, disimpan selamanya
+ * - SCHEDULED_DESTRUCTION: Arsip dijadwalkan untuk dimusnahkan
+ * - NEEDS_DOCUMENT: Arsip memerlukan dokumen pendukung
+ * - NEEDS_REVIEW: Arsip perlu review ulang
+ * 
+ * Fitur yang tersedia:
+ * - CRUD operations untuk data arsip
+ * - Sistem kode arsip untuk klasifikasi
+ * - Penentuan masa retensi otomatis
+ * - Kalkulasi jadwal review dan pemusnahan
+ * - Filter berdasarkan kategori dan status
+ * - Search berdasarkan kode atau judul arsip
+ * - Statistik arsip per kategori dan status
+ * - Alert untuk arsip yang mendekati masa review
+ * 
+ * Data yang dicatat:
+ * - Kode klasifikasi arsip
+ * - Judul dan kategori dokumen
+ * - Tanggal pembuatan dan masa retensi
+ * - Lokasi penyimpanan fisik
+ * - Deskripsi dan catatan arsip
+ * - Status pengolahan arsip
+ */
+
 export default function ArchiveInventoryPage() {
   const { data: session, status } = useSession()
   const [archives, setArchives] = useState<Archive[]>([])
@@ -41,6 +76,7 @@ export default function ArchiveInventoryPage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  // Data form untuk arsip baru
   const [newArchive, setNewArchive] = useState<CreateArchiveData>({
     code: "",
     title: "",
@@ -53,6 +89,7 @@ export default function ArchiveInventoryPage() {
     notes: "",
   })
 
+  // Mengambil data arsip dengan filter dan pagination
   const fetchArchives = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -81,6 +118,7 @@ export default function ArchiveInventoryPage() {
     }
   }, [currentPage, searchTerm, categoryFilter, statusFilter, toast])
 
+  // Mengambil statistik arsip
   const fetchArchiveStats = async () => {
     try {
       const response = await fetch("/api/archives/stats?period=month")
@@ -98,6 +136,7 @@ export default function ArchiveInventoryPage() {
     }
   }
 
+  // Load data saat komponen mount dan cek authentication
   useEffect(() => {
     if (status === "loading") return
 
@@ -110,12 +149,14 @@ export default function ArchiveInventoryPage() {
     fetchArchiveStats()
   }, [session, status, fetchArchives])
 
+  // Reload arsip saat filter berubah
   useEffect(() => {
     if (session) {
       fetchArchives()
     }
   }, [fetchArchives, session])
 
+  // Menambah arsip baru
   const handleAddArchive = async () => {
     if (!newArchive.code || !newArchive.title || !newArchive.category || 
         !newArchive.location) {

@@ -27,6 +27,41 @@ import { useToast } from "@/hooks/use-toast"
 import { Plus, Search, Edit, Trash2, FileText, Download, Upload, Paperclip, Eye, Loader2, Filter, Calendar } from "lucide-react"
 import type { Letter, LetterStats, CreateLetterData } from "@/types/letter"
 
+/**
+ * Correspondence Page - Halaman manajemen surat menyurat
+ * 
+ * Fungsi utama:
+ * - Mengelola surat masuk dan surat keluar UPT
+ * - Tracking nomor surat, tanggal, dan status surat
+ * - Mencatat pengirim/penerima dan subjek surat
+ * - Monitoring proses surat dari masuk hingga diarsipkan
+ * 
+ * Jenis surat yang dikelola:
+ * - INCOMING: Surat masuk dari pihak eksternal
+ * - OUTGOING: Surat keluar yang diterbitkan UPT
+ * 
+ * Status surat yang ditracking:
+ * - NEEDS_REVIEW: Surat perlu direview
+ * - UNDER_REVIEW: Surat sedang dalam proses review
+ * - NEEDS_DOCUMENT: Surat memerlukan dokumen pendukung
+ * - ARCHIVED: Surat sudah diarsipkan
+ * 
+ * Fitur yang tersedia:
+ * - CRUD operations untuk data surat
+ * - Filter berdasarkan jenis dan status surat
+ * - Search berdasarkan nomor, subjek, atau pengirim
+ * - Statistik surat masuk/keluar per periode
+ * - Pagination untuk handling volume surat besar
+ * - Upload dan attach dokumen surat
+ * 
+ * Data yang dicatat:
+ * - Nomor surat dan tanggal
+ * - Subjek/perihal surat
+ * - Pengirim dan penerima
+ * - Deskripsi singkat isi surat
+ * - Status processing surat
+ */
+
 export default function CorrespondencePage() {
   const { data: session, status } = useSession()
   const [letters, setLetters] = useState<Letter[]>([])
@@ -43,6 +78,7 @@ export default function CorrespondencePage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  // Data form untuk surat baru
   const [newLetter, setNewLetter] = useState<CreateLetterData>({
     number: "",
     date: new Date().toISOString().split('T')[0],
@@ -53,6 +89,7 @@ export default function CorrespondencePage() {
     description: "",
   })
 
+  // Mengambil data surat dengan filter dan pagination
   const fetchLetters = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -81,6 +118,7 @@ export default function CorrespondencePage() {
     }
   }, [currentPage, searchTerm, typeFilter, statusFilter, toast])
 
+  // Mengambil statistik surat (jumlah masuk/keluar per periode)
   const fetchLetterStats = useCallback(async () => {
     try {
       const response = await fetch("/api/letters/stats?period=month")
@@ -98,6 +136,7 @@ export default function CorrespondencePage() {
     }
   }, [toast])
 
+  // Load data saat komponen mount dan cek authentication
   useEffect(() => {
     if (status === "loading") return
 
@@ -110,6 +149,7 @@ export default function CorrespondencePage() {
     fetchLetterStats()
   }, [session, status, router])
 
+  // Menambah surat baru
   const handleAddLetter = async () => {
     if (!newLetter.number || !newLetter.subject || !newLetter.date) {
       toast({

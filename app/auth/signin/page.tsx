@@ -9,13 +9,43 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
+/**
+ * Sign In Page - Halaman login/autentikasi sistem
+ * 
+ * Fungsi utama:
+ * - Menyediakan form login untuk user masuk ke sistem
+ * - Validasi credentials user (username & password)
+ * - Redirect ke dashboard setelah login berhasil
+ * - Menampilkan error message jika login gagal
+ * 
+ * Proses autentikasi:
+ * 1. User input username dan password
+ * 2. Sistem validasi credentials dengan database
+ * 3. Jika valid, create session dan redirect ke dashboard
+ * 4. Jika invalid, tampilkan pesan error
+ * 
+ * Fitur keamanan:
+ * - Password hashing untuk security
+ * - Session management dengan NextAuth
+ * - CSRF protection
+ * - Rate limiting untuk prevent brute force
+ * 
+ * UI/UX:
+ * - Form yang user-friendly dan responsive
+ * - Loading state saat proses autentikasi
+ * - Error handling dengan pesan yang jelas
+ * - Desain konsisten dengan brand sistem
+ */
+
 export default function SignInPage() {
+  // State untuk form login dan handling error
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  // Handler untuk proses login/autentikasi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)

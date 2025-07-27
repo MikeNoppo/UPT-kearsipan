@@ -22,6 +22,29 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Check, X, Clock, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+/**
+ * Purchase Requests Page - Halaman permintaan pembelian barang
+ * 
+ * Fungsi utama:
+ * - Mengelola permintaan pembelian barang untuk keperluan UPT
+ * - Staff dapat mengajukan permintaan barang baru
+ * - Administrator dapat menyetujui atau menolak permintaan
+ * - Tracking status permintaan dari pending hingga approved/rejected
+ * 
+ * Alur kerja permintaan:
+ * 1. Staff membuat permintaan dengan detail barang dan alasan
+ * 2. Permintaan masuk status PENDING
+ * 3. Administrator review dan beri keputusan (APPROVED/REJECTED)
+ * 4. Jika disetujui, permintaan dapat diproses ke tahap penerimaan
+ * 
+ * Fitur yang tersedia:
+ * - Form permintaan barang dengan validasi
+ * - Review dan approval system untuk admin
+ * - Status tracking dengan badge visual
+ * - Catatan dan alasan untuk setiap permintaan
+ * - History lengkap permintaan dengan timestamp
+ */
+
 interface PurchaseRequest {
   id: string
   itemName: string
@@ -59,6 +82,7 @@ export default function PurchaseRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  // Data form untuk permintaan baru
   const [newRequest, setNewRequest] = useState({
     itemName: "",
     quantity: 0,
@@ -66,7 +90,7 @@ export default function PurchaseRequestsPage() {
     reason: "",
   })
 
-  // Fetch purchase requests from API
+  // Mengambil daftar permintaan pembelian dari API
   const fetchRequests = async () => {
     try {
       setLoading(true)
@@ -90,12 +114,14 @@ export default function PurchaseRequestsPage() {
     }
   }
 
+  // Load permintaan saat session tersedia
   useEffect(() => {
     if (session) {
       fetchRequests()
     }
   }, [session])
 
+  // Fungsi untuk menentukan badge status permintaan
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
@@ -124,6 +150,7 @@ export default function PurchaseRequestsPage() {
     }
   }
 
+  // Menambah permintaan pembelian baru
   const handleAddRequest = async () => {
     if (!newRequest.itemName || !newRequest.quantity || !newRequest.unit || !newRequest.reason) {
       toast({
@@ -169,6 +196,7 @@ export default function PurchaseRequestsPage() {
     }
   }
 
+  // Menyetujui atau menolak permintaan (untuk admin)
   const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       const response = await fetch(`/api/purchase-requests/${id}`, {
