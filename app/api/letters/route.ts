@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate") || ""
     const endDate = searchParams.get("endDate") || ""
 
+    // Rumus pagination: skip = (halaman - 1) * limit
+    // Formula untuk menentukan offset data dalam pagination database
     const skip = (page - 1) * limit
 
     // Build where clause
@@ -94,6 +96,8 @@ export async function GET(request: NextRequest) {
       prisma.letter.count({ where }),
     ])
 
+    // Rumus menghitung total halaman: Math.ceil(total / limit) 
+    // Formula ceiling untuk membulatkan ke atas dan menampung semua data
     const totalPages = Math.ceil(totalCount / limit)
 
     return NextResponse.json({

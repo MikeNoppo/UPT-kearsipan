@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
       `,
     ])
 
-    // Format status data
+    // Algoritma reduce untuk mengkonversi array ke object dengan counting
+    // Formula agregasi: menghitung jumlah surat per status menggunakan akumulator
     const statusStats = lettersByStatus.reduce((acc, item) => {
       acc[item.status.toLowerCase()] = item._count.id
       return acc

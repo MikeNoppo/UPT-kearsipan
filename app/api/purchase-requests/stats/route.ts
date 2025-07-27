@@ -98,7 +98,8 @@ export async function GET() {
       },
     });
 
-    // Approval rate (for admins)
+    // Rumus approval rate: (request disetujui / total yang direview) * 100
+    // Formula untuk menghitung persentase tingkat persetujuan permintaan
     let approvalRate = null;
     if (session.user.role === 'ADMINISTRATOR') {
       const totalReviewed = approvedRequests + rejectedRequests;

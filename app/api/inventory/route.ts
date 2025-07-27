@@ -21,7 +21,9 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     })
 
-    // Add status based on stock vs minStock
+    // Logika penentuan status stok berdasarkan perbandingan matematika
+    // Formula: stock <= 0 = 'critical', stock <= minStock = 'low', sisanya = 'normal'
+    // Menggunakan operator perbandingan untuk klasifikasi otomatis
     const itemsWithStatus = items.map(item => ({
       ...item,
       status: item.stock <= 0 ? 'critical' : item.stock <= item.minStock ? 'low' : 'normal'

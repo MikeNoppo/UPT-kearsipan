@@ -130,13 +130,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate destruction date if status is SCHEDULED_DESTRUCTION
+    // Logika kalkulasi tanggal pemusnahan arsip berdasarkan masa retensi
+    // Formula: tanggal pembuatan + periode retensi (dalam tahun) = tanggal pemusnahan
     let destructionDate = null
     if (data.status === "SCHEDULED_DESTRUCTION" || data.destructionDate) {
       if (data.destructionDate) {
         destructionDate = new Date(data.destructionDate)
       } else {
-        // Calculate destruction date based on creation date + retention period
+        // Rumus perhitungan: creation date + retention period (years)
+        // Menggunakan manipulasi Date object untuk menambah tahun
         const creationDate = new Date(data.creationDate)
         destructionDate = new Date(creationDate)
         destructionDate.setFullYear(creationDate.getFullYear() + data.retentionPeriod)

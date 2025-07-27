@@ -21,11 +21,13 @@ export async function POST(request: NextRequest) {
         throw new Error('Item not found')
       }
 
-      // Calculate new stock
+      // Rumus kalkulasi stok baru berdasarkan jenis transaksi
+      // Formula: IN = stok + quantity, OUT = stok - quantity
       const newStock = type === 'IN' 
         ? item.stock + parseInt(quantity)
         : item.stock - parseInt(quantity)
 
+      // Validasi matematika: stok tidak boleh negatif
       if (newStock < 0) {
         throw new Error('Insufficient stock')
       }

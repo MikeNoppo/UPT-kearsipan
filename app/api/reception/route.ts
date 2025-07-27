@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
+    // Rumus pagination: skip = (halaman - 1) * limit
+    // Formula untuk menentukan berapa data yang dilewati dalam pagination
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -84,6 +86,8 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
+        // Rumus menghitung total halaman: Math.ceil(total / limit)
+        // Formula ceiling untuk membulatkan ke atas agar semua data tertampung
         pages: Math.ceil(total / limit),
       },
     });

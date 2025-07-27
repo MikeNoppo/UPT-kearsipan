@@ -154,11 +154,13 @@ export async function PUT(
 
     // Update inventory stock if linked item and relevant changes
     if (existingReception.itemId) {
+      // Kalkulasi selisih kuantitas: quantity baru - quantity lama
       const quantityDiff = newQuantity - oldQuantity;
       const statusChanged = oldStatus !== newStatus;
 
       if (quantityDiff !== 0 || statusChanged) {
-        // Calculate the actual stock change needed
+        // Logika perhitungan perubahan stok berdasarkan status
+        // Formula kompleks untuk menentukan penambahan/pengurangan stok yang tepat
         let stockChange = 0;
 
         if (oldStatus === 'COMPLETE' && newStatus !== 'COMPLETE') {
@@ -186,6 +188,7 @@ export async function PUT(
           await prisma.stockTransaction.create({
             data: {
               type: stockChange > 0 ? 'IN' : 'OUT',
+              // Rumus nilai absolut: Math.abs() untuk mendapatkan nilai positif
               quantity: Math.abs(stockChange),
               description: `Reception update: ${validatedData.supplier || existingReception.supplier}`,
               itemId: existingReception.itemId,

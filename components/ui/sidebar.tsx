@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
+// Rumus kalkulasi cookie expiry: 60 detik * 60 menit * 24 jam * 7 hari = 604800 detik
+// Formula untuk menghitung masa berlaku cookie selama 1 minggu dalam detik
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -650,7 +652,8 @@ const SidebarMenuSkeleton = React.forwardRef<
     showIcon?: boolean
   }
 >(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
+  // Rumus random width: Math.floor(Math.random() * 40) + 50
+  // Formula untuk menghasilkan lebar acak antara 50% hingga 90% untuk skeleton loading
   const width = React.useMemo(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`
   }, [])

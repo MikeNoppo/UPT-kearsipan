@@ -45,12 +45,14 @@ export async function GET() {
       }),
     ]);
 
-    // Calculate completion rate
+    // Rumus perhitungan completion rate: (penerimaan lengkap / total penerimaan) * 100
+    // Formula ini mengukur efektivitas penerimaan barang dalam persentase
     const completionRate = totalReceptions > 0 
       ? Math.round((completeReceptions / totalReceptions) * 100) 
       : 0;
 
-    // Get reception trends for the last 7 days
+    // Kalkulasi tanggal 7 hari yang lalu untuk analisis trend
+    // Menggunakan manipulasi Date object dengan pengurangan hari
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 

@@ -28,6 +28,8 @@ const actionTypes = {
 let count = 0
 
 function genId() {
+  // Rumus modulo untuk ID generator: (count + 1) % MAX_SAFE_INTEGER
+  // Formula untuk mencegah overflow dengan wrapping ke 0 setelah mencapai nilai maksimum
   count = (count + 1) % Number.MAX_SAFE_INTEGER
   return count.toString()
 }
