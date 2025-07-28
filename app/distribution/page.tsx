@@ -290,7 +290,7 @@ export default function DistributionPage() {
     setIsSubmitting(true)
     try {
       const response = await fetch(`/api/distribution/${editingDistribution.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },

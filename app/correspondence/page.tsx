@@ -215,7 +215,7 @@ export default function CorrespondencePage() {
     setIsSubmitting(true)
     try {
       const response = await fetch(`/api/letters/${editingLetter.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },

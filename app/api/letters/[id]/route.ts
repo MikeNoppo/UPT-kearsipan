@@ -55,8 +55,8 @@ export async function GET(
   }
 }
 
-// PUT /api/letters/[id] - Update letter
-export async function PUT(
+// PATCH /api/letters/[id] - Update letter
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

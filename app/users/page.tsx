@@ -243,7 +243,7 @@ export default function UsersPage() {
     setIsSubmitting(true)
     try {
       const response = await fetch(`/api/users/${editingUser.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -350,7 +350,7 @@ export default function UsersPage() {
 
     try {
       const response = await fetch(`/api/users/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
@@ -403,7 +403,7 @@ export default function UsersPage() {
     setIsSubmitting(true)
     try {
       const response = await fetch(`/api/users/${passwordResetUser.id}/password`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },

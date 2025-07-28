@@ -86,8 +86,8 @@ export async function GET(
   }
 }
 
-// PUT /api/purchase-requests/[id] - Update purchase request
-export async function PUT(
+// PATCH /api/purchase-requests/[id] - Update purchase request
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

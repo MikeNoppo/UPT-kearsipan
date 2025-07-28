@@ -172,7 +172,7 @@ export default function InventoryPage() {
 
     try {
       const response = await fetch(`/api/inventory/${editingItem.id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },

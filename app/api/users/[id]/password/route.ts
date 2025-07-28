@@ -4,8 +4,8 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
-// PUT /api/users/[id]/password - Change user password
-export async function PUT(
+// PATCH /api/users/[id]/password - Change user password
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

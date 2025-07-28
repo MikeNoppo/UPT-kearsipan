@@ -55,8 +55,8 @@ export async function GET(
   }
 }
 
-// PUT /api/archives/[id] - Update archive
-export async function PUT(
+// PATCH /api/archives/[id] - Update archive
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

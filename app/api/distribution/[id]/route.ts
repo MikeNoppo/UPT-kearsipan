@@ -66,8 +66,8 @@ export async function GET(
   }
 }
 
-// PUT /api/distribution/[id] - Update distribution
-export async function PUT(
+// PATCH /api/distribution/[id] - Update distribution
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

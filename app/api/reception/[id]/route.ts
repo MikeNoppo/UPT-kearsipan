@@ -69,8 +69,8 @@ export async function GET(
   }
 }
 
-// PUT /api/reception/[id] - Update reception
-export async function PUT(
+// PATCH /api/reception/[id] - Update reception
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {

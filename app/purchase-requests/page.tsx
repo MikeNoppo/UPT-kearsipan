@@ -200,7 +200,7 @@ export default function PurchaseRequestsPage() {
   const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       const response = await fetch(`/api/purchase-requests/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },

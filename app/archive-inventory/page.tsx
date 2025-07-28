@@ -225,7 +225,7 @@ export default function ArchiveInventoryPage() {
     setIsSubmitting(true)
     try {
       const response = await fetch(`/api/archives/${editingArchive.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
