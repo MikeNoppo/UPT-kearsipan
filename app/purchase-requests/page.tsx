@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Check, X, Clock, Loader2 } from "lucide-react"
+import { Plus, Check, X, Clock, Loader2, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 /**
@@ -82,6 +82,8 @@ export default function PurchaseRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingRequest, setEditingRequest] = useState<PurchaseRequest | null>(null)
   // Data form untuk permintaan baru
   const [newRequest, setNewRequest] = useState({
     itemName: "",
@@ -239,6 +241,54 @@ export default function PurchaseRequestsPage() {
     handleReviewRequest(id, 'REJECTED')
   }
 
+  // Mengedit permintaan pembelian (hanya untuk staff dan permintaan pending)
+  const handleEditRequest = async () => {
+    if (!editingRequest) return
+
+    try {
+      setSubmitting(true)
+      const response = await fetch(`/api/purchase-requests/${editingRequest.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemName: editingRequest.itemName,
+          quantity: editingRequest.quantity,
+          unit: editingRequest.unit,
+          reason: editingRequest.reason,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update purchase request')
+      }
+
+      const updatedRequest = await response.json()
+      setRequests(requests.map(request => 
+        request.id === editingRequest.id ? updatedRequest : request
+      ))
+      
+      setEditingRequest(null)
+      setIsEditDialogOpen(false)
+      
+      toast({
+        title: "Success",
+        description: "Purchase request updated successfully",
+      })
+    } catch (error) {
+      console.error('Error updating request:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to update purchase request',
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   if (status === 'loading' || loading) {
     return (
       <DashboardLayout>
@@ -331,6 +381,59 @@ export default function PurchaseRequestsPage() {
           </Dialog>
         </div>
 
+        {/* Edit Request Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Permintaan Pembelian</DialogTitle>
+              <DialogDescription>Ubah detail permintaan pembelian Anda</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-itemName">Nama Barang</Label>
+                <Input
+                  id="edit-itemName"
+                  value={editingRequest?.itemName || ""}
+                  onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, itemName: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-quantity">Jumlah</Label>
+                <Input
+                  id="edit-quantity"
+                  type="number"
+                  value={editingRequest?.quantity || 0}
+                  onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, quantity: Number.parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-unit">Satuan</Label>
+                <Input
+                  id="edit-unit"
+                  value={editingRequest?.unit || ""}
+                  onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, unit: e.target.value })}
+                  placeholder="Unit, Rim, Kg, dll"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-reason">Alasan Permintaan</Label>
+                <Textarea
+                  id="edit-reason"
+                  value={editingRequest?.reason || ""}
+                  onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, reason: e.target.value })}
+                  placeholder="Jelaskan alasan permintaan pembelian"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleEditRequest} disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Simpan Perubahan
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -379,7 +482,7 @@ export default function PurchaseRequestsPage() {
                   <TableHead>Pemohon</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Status</TableHead>
-                  {session.user.role === "ADMINISTRATOR" && <TableHead>Aksi</TableHead>}
+                  <TableHead>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -392,10 +495,28 @@ export default function PurchaseRequestsPage() {
                     <TableCell>{request.requestedBy.name}</TableCell>
                     <TableCell>{new Date(request.requestDate).toLocaleDateString("id-ID")}</TableCell>
                     <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    {session.user.role === "ADMINISTRATOR" && (
-                      <TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        {/* Edit button for staff (own pending requests) and administrators (all pending requests) */}
                         {request.status === "PENDING" && (
-                          <div className="flex items-center space-x-2">
+                          (session.user.role === "ADMINISTRATOR" || 
+                           (session.user.role === "STAFF" && request.requestedBy.id === session.user.id)) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingRequest({...request})
+                                setIsEditDialogOpen(true)
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )
+                        )}
+                        
+                        {/* Review buttons for all users on pending requests */}
+                        {request.status === "PENDING" && (
+                          <>
                             <Button
                               variant="outline"
                               size="sm"
@@ -412,10 +533,10 @@ export default function PurchaseRequestsPage() {
                             >
                               <X className="h-4 w-4" />
                             </Button>
-                          </div>
+                          </>
                         )}
-                      </TableCell>
-                    )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
