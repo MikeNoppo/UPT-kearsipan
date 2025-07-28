@@ -61,6 +61,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
   const [submitting, setSubmitting] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingRequest, setEditingRequest] = useState<PurchaseRequest | null>(null)
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null)
 
   // Fungsi untuk menentukan badge status permintaan
   const getStatusBadge = (status: string) => {
@@ -94,6 +95,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
   // Menyetujui atau menolak permintaan (untuk admin)
   const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
+      setReviewingRequestId(id)
       const response = await fetch(`/api/purchase-requests/${id}`, {
         method: 'PATCH',
         headers: {
@@ -120,6 +122,8 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
         description: error instanceof Error ? error.message : 'Failed to review purchase request',
         variant: "destructive",
       })
+    } finally {
+      setReviewingRequestId(null)
     }
   }
 
@@ -290,17 +294,27 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
                             variant="outline"
                             size="sm"
                             onClick={() => handleApproveRequest(request.id)}
+                            disabled={reviewingRequestId === request.id}
                             className="text-green-600 hover:text-green-700"
                           >
-                            <Check className="h-4 w-4" />
+                            {reviewingRequestId === request.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleRejectRequest(request.id)}
+                            disabled={reviewingRequestId === request.id}
                             className="text-red-600 hover:text-red-700"
                           >
-                            <X className="h-4 w-4" />
+                            {reviewingRequestId === request.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
                           </Button>
                         </>
                       )}
