@@ -131,7 +131,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
     handleReviewRequest(id, 'REJECTED')
   }
 
-  // Mengedit permintaan pembelian (hanya untuk staff dan permintaan pending)
+  // Mengedit permintaan pembelian (untuk staff dan administrator pada semua status)
   const handleEditRequest = async () => {
     if (!editingRequest) return
 
@@ -268,21 +268,20 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
                   <TableCell>{getStatusBadge(request.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
-                      {/* Edit button for staff (own pending requests) and administrators (all pending requests) */}
-                      {request.status === "PENDING" && 
-                        (userRole === "ADMINISTRATOR" || 
-                         (userRole === "STAFF" && request.requestedBy.id === userId)) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingRequest({...request})
-                              setIsEditDialogOpen(true)
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
+                      {/* Edit button for staff (own requests) and administrators (all requests) */}
+                      {(userRole === "ADMINISTRATOR" || 
+                        (userRole === "STAFF" && request.requestedBy.id === userId)) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingRequest({...request})
+                            setIsEditDialogOpen(true)
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
                       
                       {/* Review buttons for pending requests */}
                       {request.status === "PENDING" && (
