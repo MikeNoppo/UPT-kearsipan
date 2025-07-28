@@ -75,6 +75,7 @@ export default function InventoryPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
+  const [availableCategories, setAvailableCategories] = useState<string[]>([])
 
   // Memuat daftar inventaris saat komponen dimount
   useEffect(() => {
@@ -88,6 +89,15 @@ export default function InventoryPage() {
       if (response.ok) {
         const data = await response.json()
         setItems(data)
+        
+        // Extract unique categories from items
+        const uniqueCategories = [...new Set(data.map((item: InventoryItem) => item.category))] as string[]
+        setAvailableCategories(uniqueCategories)
+        
+        // Reset selected category if it's not available anymore
+        if (selectedCategory !== "all" && !uniqueCategories.includes(selectedCategory)) {
+          setSelectedCategory("all")
+        }
       } else {
         console.error('Failed to fetch items')
       }
@@ -292,7 +302,7 @@ export default function InventoryPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Kategori</SelectItem>
-              {categories.map((category) => (
+              {availableCategories.map((category) => (
                 <SelectItem key={category} value={category}>
                   {category}
                 </SelectItem>
