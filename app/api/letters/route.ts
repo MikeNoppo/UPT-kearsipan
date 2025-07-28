@@ -16,6 +16,9 @@ const createLetterSchema = z.object({
   status: z.enum(["RECEIVED", "SENT", "DRAFT"]).default("DRAFT"),
   hasDocument: z.boolean().default(false),
   documentPath: z.string().optional(),
+  documentName: z.string().optional(),
+  documentSize: z.number().optional(),
+  documentType: z.string().optional(),
 })
 
 // GET endpoint untuk mengambil semua surat dengan pagination dan filtering
@@ -176,8 +179,12 @@ export async function POST(request: NextRequest) {
         to: data.to,
         description: data.description,
         status: defaultStatus,
-        hasDocument: data.hasDocument,
+        hasDocument: data.hasDocument || false,
         documentPath: data.documentPath,
+        documentName: data.documentName,
+        documentSize: data.documentSize,
+        documentType: data.documentType,
+        uploadedAt: data.documentPath ? new Date() : null,
         createdById: session.user.id,
       },
       include: {

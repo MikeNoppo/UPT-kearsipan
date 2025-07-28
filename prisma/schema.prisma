@@ -155,6 +155,10 @@ model Letter {
   status          LetterStatus
   hasDocument     Boolean  @default(false)
   documentPath    String?
+  documentName    String?  // Nama file asli yang diupload user
+  documentSize    Int?     // Size file dalam bytes
+  documentType    String?  // MIME type file
+  uploadedAt      DateTime? // Kapan file diupload
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -15,6 +15,9 @@ const updateLetterSchema = z.object({
   status: z.enum(["RECEIVED", "SENT", "DRAFT"]).optional(),
   hasDocument: z.boolean().optional(),
   documentPath: z.string().optional(),
+  documentName: z.string().optional(),
+  documentSize: z.number().optional(),
+  documentType: z.string().optional(),
 })
 
 // GET /api/letters/[id] - Get specific letter
@@ -115,6 +118,23 @@ export async function PATCH(
     if (data.status) updateData.status = data.status
     if (data.hasDocument !== undefined) updateData.hasDocument = data.hasDocument
     if (data.documentPath !== undefined) updateData.documentPath = data.documentPath
+    if (data.documentName !== undefined) updateData.documentName = data.documentName
+    if (data.documentSize !== undefined) updateData.documentSize = data.documentSize
+    if (data.documentType !== undefined) updateData.documentType = data.documentType
+    
+    // If file is being updated/added, set uploadedAt
+    if (data.documentPath && data.documentPath !== existingLetter.documentPath) {
+      updateData.uploadedAt = new Date()
+    }
+    
+    // If file is being removed, clear all file metadata
+    if (data.hasDocument === false) {
+      updateData.documentPath = null
+      updateData.documentName = null
+      updateData.documentSize = null
+      updateData.documentType = null
+      updateData.uploadedAt = null
+    }
 
     // Update letter
     const letter = await prisma.letter.update({

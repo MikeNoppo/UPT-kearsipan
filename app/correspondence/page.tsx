@@ -23,9 +23,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { FileUpload } from "@/components/ui/file-upload"
 import { useToast } from "@/hooks/use-toast"
 import { Plus, Search, Edit, Trash2, FileText, Download, Upload, Paperclip, Eye, Loader2, Filter, Calendar } from "lucide-react"
-import type { Letter, LetterStats, CreateLetterData } from "@/types/letter"
+import type { Letter, LetterStats, CreateLetterData, FileUploadResponse } from "@/types/letter"
 
 /**
  * Correspondence Page - Halaman manajemen surat menyurat
@@ -87,6 +88,10 @@ export default function CorrespondencePage() {
     from: "",
     to: "",
     description: "",
+    documentPath: undefined,
+    documentName: undefined,
+    documentSize: undefined,
+    documentType: undefined,
   })
 
   // Mengambil data surat dengan filter dan pagination
@@ -190,6 +195,10 @@ export default function CorrespondencePage() {
         from: "",
         to: "",
         description: "",
+        documentPath: undefined,
+        documentName: undefined,
+        documentSize: undefined,
+        documentType: undefined,
       })
       setIsAddDialogOpen(false)
       await fetchLetterStats()
@@ -289,6 +298,56 @@ export default function CorrespondencePage() {
     }
   }
 
+  // File upload handlers
+  const handleFileUpload = (fileData: FileUploadResponse) => {
+    setNewLetter({
+      ...newLetter,
+      hasDocument: true,
+      documentPath: fileData.path,
+      documentName: fileData.originalName,
+      documentSize: fileData.size,
+      documentType: fileData.type,
+    })
+  }
+
+  const handleFileRemove = () => {
+    setNewLetter({
+      ...newLetter,
+      hasDocument: false,
+      documentPath: undefined,
+      documentName: undefined,
+      documentSize: undefined,
+      documentType: undefined,
+    })
+  }
+
+  // File upload handlers for editing
+  const handleEditFileUpload = (fileData: FileUploadResponse) => {
+    if (editingLetter) {
+      setEditingLetter({
+        ...editingLetter,
+        hasDocument: true,
+        documentPath: fileData.path,
+        documentName: fileData.originalName,
+        documentSize: fileData.size,
+        documentType: fileData.type,
+      })
+    }
+  }
+
+  const handleEditFileRemove = () => {
+    if (editingLetter) {
+      setEditingLetter({
+        ...editingLetter,
+        hasDocument: false,
+        documentPath: undefined,
+        documentName: undefined,
+        documentSize: undefined,
+        documentType: undefined,
+      })
+    }
+  }
+
   const getTypeBadge = (type: string) => {
     switch (type) {
       case "INCOMING":
@@ -335,12 +394,58 @@ export default function CorrespondencePage() {
     setCurrentPage(1)
   }
 
-  const handleViewDocument = (letter: Letter) => {
-    if (letter.documentPath) {
-      // In a real app, this would open the document
-      alert(`Membuka dokumen: ${letter.documentPath}`)
-    } else {
-      alert("Tidak ada dokumen yang tersedia")
+  const handleDownloadDocument = async (letter: Letter) => {
+    if (!letter.hasDocument || !letter.documentPath) {
+      toast({
+        title: "Error",
+        description: "Tidak ada dokumen yang tersedia",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/letters/${letter.id}/download`)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Download failed')
+      }
+
+      // Get filename from response headers or use document name
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = letter.documentName || 'document'
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "File berhasil didownload"
+      })
+
+    } catch (error) {
+      console.error('Download error:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Download gagal",
+        variant: "destructive"
+      })
     }
   }
 
@@ -454,6 +559,16 @@ export default function CorrespondencePage() {
                     placeholder="Keterangan tambahan tentang surat"
                   />
                 </div>
+                <FileUpload
+                  onUploadComplete={handleFileUpload}
+                  onRemove={handleFileRemove}
+                  currentFile={newLetter.documentName ? {
+                    name: newLetter.documentName,
+                    size: newLetter.documentSize,
+                    path: newLetter.documentPath
+                  } : undefined}
+                  disabled={isSubmitting}
+                />
               </div>
               <DialogFooter>
                 <Button onClick={handleAddLetter} disabled={isSubmitting}>
@@ -609,14 +724,20 @@ export default function CorrespondencePage() {
                     <TableCell>{getStatusBadge(letter.status)}</TableCell>
                     <TableCell>
                       {letter.hasDocument ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDocument(letter)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadDocument(letter)}
+                            className="h-8 px-2"
+                            title={`Download: ${letter.documentName || 'document'}`}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            <span className="text-xs max-w-[80px] truncate">
+                              {letter.documentName || 'File'}
+                            </span>
+                          </Button>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
@@ -778,6 +899,17 @@ export default function CorrespondencePage() {
                     disabled={isSubmitting}
                   />
                 </div>
+                <FileUpload
+                  onUploadComplete={handleEditFileUpload}
+                  onRemove={handleEditFileRemove}
+                  currentFile={editingLetter.documentName ? {
+                    name: editingLetter.documentName,
+                    size: editingLetter.documentSize,
+                    path: editingLetter.documentPath
+                  } : undefined}
+                  letterId={editingLetter.id}
+                  disabled={isSubmitting}
+                />
               </div>
             )}
             <DialogFooter>
