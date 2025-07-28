@@ -23,7 +23,7 @@ const updateLetterSchema = z.object({
 // GET /api/letters/[id] - Get specific letter
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -31,8 +31,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Await params for Next.js 15 compatibility
+    const { id } = await params
+
     const letter = await prisma.letter.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         createdBy: {
           select: {
@@ -61,13 +64,16 @@ export async function GET(
 // PATCH /api/letters/[id] - Update letter
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Await params for Next.js 15 compatibility
+    const { id } = await params
 
     const body = await request.json()
 
@@ -84,7 +90,7 @@ export async function PATCH(
 
     // Check if letter exists
     const existingLetter = await prisma.letter.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingLetter) {
@@ -138,7 +144,7 @@ export async function PATCH(
 
     // Update letter
     const letter = await prisma.letter.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         createdBy: {
@@ -164,7 +170,7 @@ export async function PATCH(
 // DELETE /api/letters/[id] - Delete letter
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -172,9 +178,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Await params for Next.js 15 compatibility
+    const { id } = await params
+
     // Check if letter exists
     const existingLetter = await prisma.letter.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingLetter) {
@@ -188,7 +197,7 @@ export async function DELETE(
 
     // Delete letter
     await prisma.letter.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: "Letter deleted successfully" })

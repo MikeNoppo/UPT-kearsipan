@@ -76,6 +76,7 @@ export default function CorrespondencePage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  
   const router = useRouter()
   const { toast } = useToast()
 
@@ -346,6 +347,22 @@ export default function CorrespondencePage() {
         documentType: undefined,
       })
     }
+  }
+
+  // View document in new tab
+  const handleViewDocument = (letter: Letter) => {
+    if (!letter.hasDocument || !letter.documentPath) {
+      toast({
+        title: "Error",
+        description: "Tidak ada dokumen yang tersedia",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Open document in new tab
+    const previewUrl = `/api/letters/${letter.id}/preview`
+    window.open(previewUrl, '_blank')
   }
 
   const getTypeBadge = (type: string) => {
@@ -724,7 +741,16 @@ export default function CorrespondencePage() {
                     <TableCell>{getStatusBadge(letter.status)}</TableCell>
                     <TableCell>
                       {letter.hasDocument ? (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDocument(letter)}
+                            className="h-8 px-2"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -732,10 +758,7 @@ export default function CorrespondencePage() {
                             className="h-8 px-2"
                             title={`Download: ${letter.documentName || 'document'}`}
                           >
-                            <Download className="h-4 w-4 mr-1" />
-                            <span className="text-xs max-w-[80px] truncate">
-                              {letter.documentName || 'File'}
-                            </span>
+                            <Download className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : (

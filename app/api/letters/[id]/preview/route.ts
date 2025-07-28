@@ -6,7 +6,7 @@ import { readFile } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
 
-// GET /api/letters/[id]/download - Download dokumen surat
+// GET /api/letters/[id]/preview - Preview dokumen surat dalam browser
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,23 +56,48 @@ export async function GET(
     // Read file
     const fileBuffer = await readFile(filePath)
 
-    // Use original filename for download, fallback to generated name
-    const downloadFilename = letter.documentName || path.basename(letter.documentPath)
+    // Determine MIME type for proper browser handling
+    let contentType = letter.documentType || 'application/octet-stream'
+    
+    // Ensure proper MIME types for preview
+    if (letter.documentName) {
+      const ext = path.extname(letter.documentName).toLowerCase()
+      switch (ext) {
+        case '.pdf':
+          contentType = 'application/pdf'
+          break
+        case '.jpg':
+        case '.jpeg':
+          contentType = 'image/jpeg'
+          break
+        case '.png':
+          contentType = 'image/png'
+          break
+        case '.gif':
+          contentType = 'image/gif'
+          break
+        case '.webp':
+          contentType = 'image/webp'
+          break
+      }
+    }
 
-    // Return file with proper headers
+    // Return file with preview-optimized headers
     return new NextResponse(fileBuffer, {
       headers: {
-        'Content-Type': letter.documentType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${downloadFilename}"`,
+        'Content-Type': contentType,
+        'Content-Disposition': 'inline', // inline instead of attachment for preview
         'Content-Length': fileBuffer.length.toString(),
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour for performance
+        'X-Frame-Options': 'SAMEORIGIN', // Security: only allow embedding in same origin
+        'X-Content-Type-Options': 'nosniff', // Security: prevent MIME type sniffing
       }
     })
 
   } catch (error) {
-    console.error("Download error:", error)
+    console.error("Preview error:", error)
     return NextResponse.json(
-      { error: "Download failed" },
+      { error: "Preview failed" },
       { status: 500 }
     )
   }
