@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Trash2, Package, TrendingUp, TrendingDown } from "lucide-react"
+import { Plus, Search, Trash2, Edit } from "lucide-react"
 
 /**
  * Inventory Management Page - Halaman manajemen inventaris barang
@@ -73,8 +73,8 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isStockDialogOpen, setIsStockDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
 
   // Memuat daftar inventaris saat komponen dimount
   useEffect(() => {
@@ -103,13 +103,6 @@ export default function InventoryPage() {
     unit: "",
     stock: 0,
     minStock: 0,
-  })
-
-  // Data form untuk transaksi stok
-  const [stockTransaction, setStockTransaction] = useState({
-    type: "in" as "in" | "out",
-    quantity: 0,
-    description: "",
   })
 
   const categories = ["Alat Tulis", "Elektronik", "Furniture", "Konsumsi"]
@@ -156,40 +149,6 @@ export default function InventoryPage() {
     }
   }
 
-  // Memproses transaksi stok (barang masuk/keluar)
-  const handleStockTransaction = async () => {
-    if (!selectedItem || !session?.user?.id) return
-
-    try {
-      const response = await fetch('/api/stock-transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemId: selectedItem.id,
-          type: stockTransaction.type.toUpperCase(),
-          quantity: stockTransaction.quantity,
-          description: stockTransaction.description,
-          userId: session.user.id
-        }),
-      })
-
-      if (response.ok) {
-        await fetchItems() // Refresh items list
-        setStockTransaction({ type: "in", quantity: 0, description: "" })
-        setIsStockDialogOpen(false)
-        setSelectedItem(null)
-      } else {
-        const errorData = await response.json()
-        alert(errorData.error || 'Failed to process stock transaction')
-      }
-    } catch (error) {
-      console.error('Error processing stock transaction:', error)
-      alert('Error processing stock transaction')
-    }
-  }
-
   // Menghapus item dari inventaris
   const handleDeleteItem = async (id: string) => {
     try {
@@ -204,6 +163,37 @@ export default function InventoryPage() {
       }
     } catch (error) {
       console.error('Error deleting item:', error)
+    }
+  }
+
+  // Mengedit item inventaris
+  const handleEditItem = async () => {
+    if (!editingItem) return
+
+    try {
+      const response = await fetch(`/api/inventory/${editingItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editingItem.name,
+          category: editingItem.category,
+          unit: editingItem.unit,
+          stock: editingItem.stock,
+          minStock: editingItem.minStock,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchItems() // Refresh items list
+        setEditingItem(null)
+        setIsEditDialogOpen(false)
+      } else {
+        console.error('Failed to update item')
+      }
+    } catch (error) {
+      console.error('Error updating item:', error)
     }
   }
 
@@ -342,11 +332,11 @@ export default function InventoryPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setSelectedItem(item)
-                            setIsStockDialogOpen(true)
+                            setEditingItem({...item})
+                            setIsEditDialogOpen(true)
                           }}
                         >
-                          <Package className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleDeleteItem(item.id)}>
                           <Trash2 className="h-4 w-4" />
@@ -360,69 +350,70 @@ export default function InventoryPage() {
           </CardContent>
         </Card>
 
-        <Dialog open={isStockDialogOpen} onOpenChange={setIsStockDialogOpen}>
+        {/* Edit Item Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Transaksi Stok</DialogTitle>
-              <DialogDescription>{selectedItem && `Kelola stok untuk ${selectedItem.name}`}</DialogDescription>
+              <DialogTitle>Kelola Barang {editingItem?.name}</DialogTitle>
+              <DialogDescription>Edit informasi barang inventaris</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label>Jenis Transaksi</Label>
-                <Select
-                  value={stockTransaction.type}
-                  onValueChange={(value: "in" | "out") => setStockTransaction({ ...stockTransaction, type: value })}
+                <Label htmlFor="edit-name">Nama Barang</Label>
+                <Input
+                  id="edit-name"
+                  value={editingItem?.name || ""}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, name: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-category">Kategori Barang</Label>
+                <Select 
+                  value={editingItem?.category || ""} 
+                  onValueChange={(value) => editingItem && setEditingItem({ ...editingItem, category: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="in">
-                      <div className="flex items-center">
-                        <TrendingUp className="mr-2 h-4 w-4 text-green-500" />
-                        Barang Masuk
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="out">
-                      <div className="flex items-center">
-                        <TrendingDown className="mr-2 h-4 w-4 text-red-500" />
-                        Barang Keluar
-                      </div>
-                    </SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="quantity">Jumlah</Label>
+                <Label htmlFor="edit-unit">Satuan</Label>
                 <Input
-                  id="quantity"
-                  type="number"
-                  value={stockTransaction.quantity}
-                  onChange={(e) =>
-                    setStockTransaction({
-                      ...stockTransaction,
-                      quantity: Number.parseInt(e.target.value) || 0,
-                    })
-                  }
+                  id="edit-unit"
+                  value={editingItem?.unit || ""}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, unit: e.target.value })}
+                  placeholder="Unit, Rim, Kg, dll"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="description">Keterangan</Label>
+                <Label htmlFor="edit-stock">Stok Saat Ini</Label>
                 <Input
-                  id="description"
-                  value={stockTransaction.description}
-                  onChange={(e) =>
-                    setStockTransaction({
-                      ...stockTransaction,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Keterangan transaksi"
+                  id="edit-stock"
+                  type="number"
+                  value={editingItem?.stock || 0}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, stock: Number.parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-minStock">Stok Minimum</Label>
+                <Input
+                  id="edit-minStock"
+                  type="number"
+                  value={editingItem?.minStock || 0}
+                  onChange={(e) => editingItem && setEditingItem({ ...editingItem, minStock: Number.parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleStockTransaction}>Simpan Transaksi</Button>
+              <Button onClick={handleEditItem}>Simpan Perubahan</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
