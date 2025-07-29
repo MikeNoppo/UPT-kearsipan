@@ -11,7 +11,6 @@ const createReceptionSchema = z.object({
   requestedQuantity: z.number().min(1, 'Requested quantity must be at least 1'),
   receivedQuantity: z.number().min(0, 'Received quantity must be at least 0'),
   unit: z.string().min(1, 'Unit is required'),
-  supplier: z.string().min(1, 'Supplier is required'),
   receiptDate: z.string().datetime('Invalid date format'),
   status: z.enum(['COMPLETE', 'PARTIAL', 'DIFFERENT']),
   notes: z.string().optional(),
@@ -47,7 +46,6 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { itemName: { contains: search, mode: 'insensitive' } },
-        { supplier: { contains: search, mode: 'insensitive' } },
         { receivedBy: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -133,7 +131,6 @@ export async function POST(request: NextRequest) {
         requestedQuantity: validatedData.requestedQuantity,
         receivedQuantity: validatedData.receivedQuantity,
         unit: validatedData.unit,
-        supplier: validatedData.supplier,  
         receiptDate: new Date(validatedData.receiptDate),
         status: validatedData.status,
         notes: validatedData.notes,
@@ -176,7 +173,7 @@ export async function POST(request: NextRequest) {
         data: {
           type: 'IN',
           quantity: validatedData.receivedQuantity,
-          description: `Reception from ${validatedData.supplier}`,
+          description: `Reception from inventory reception`,
           itemId: validatedData.itemId,
           userId: session.user.id,
         },

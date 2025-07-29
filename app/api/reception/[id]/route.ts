@@ -11,7 +11,6 @@ const updateReceptionSchema = z.object({
   requestedQuantity: z.number().min(1, 'Requested quantity must be at least 1').optional(),
   receivedQuantity: z.number().min(0, 'Received quantity must be at least 0').optional(),
   unit: z.string().min(1, 'Unit is required').optional(),
-  supplier: z.string().min(1, 'Supplier is required').optional(),
   receiptDate: z.string().datetime('Invalid date format').optional(),
   status: z.enum(['COMPLETE', 'PARTIAL', 'DIFFERENT']).optional(),
   notes: z.string().optional(),
@@ -190,7 +189,7 @@ export async function PATCH(
               type: stockChange > 0 ? 'IN' : 'OUT',
               // Rumus nilai absolut: Math.abs() untuk mendapatkan nilai positif
               quantity: Math.abs(stockChange),
-              description: `Reception update: ${validatedData.supplier || existingReception.supplier}`,
+              description: `Reception update`,
               itemId: existingReception.itemId,
               userId: session.user.id,
             },
@@ -260,7 +259,7 @@ export async function DELETE(
         data: {
           type: 'OUT',
           quantity: existingReception.receivedQuantity,
-          description: `Reception deleted: ${existingReception.supplier}`,
+          description: `Reception deleted`,
           itemId: existingReception.itemId,
           userId: session.user.id,
         },

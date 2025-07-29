@@ -17,7 +17,6 @@ interface Reception {
   requestedQuantity: number
   receivedQuantity: number
   unit: string
-  supplier: string
   receiptDate: string
   status: "COMPLETE" | "PARTIAL" | "DIFFERENT"
   notes?: string
@@ -144,7 +143,6 @@ export function ReceptionClient() {
   const filteredReceptions = receptions.filter(
     (reception) =>
       reception.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reception.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (reception.requestId && reception.requestId.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
@@ -201,7 +199,6 @@ export function ReceptionClient() {
           <p className="text-muted-foreground">Catat barang yang diterima dan perbarui stok inventaris</p>
         </div>
         <CreateReceptionDialog 
-          inventory={inventory}
           onReceptionCreated={() => {
             fetchReceptions()
             fetchStats()
@@ -276,7 +273,6 @@ export function ReceptionClient() {
                 <TableHead>Nama Barang</TableHead>
                 <TableHead>Diminta</TableHead>
                 <TableHead>Diterima</TableHead>
-                <TableHead>Supplier</TableHead>
                 <TableHead>Diterima Oleh</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
@@ -309,7 +305,6 @@ export function ReceptionClient() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell>{reception.supplier}</TableCell>
                   <TableCell>{reception.receivedBy.name}</TableCell>
                   <TableCell>{new Date(reception.receiptDate).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{getStatusBadge(reception.status)}</TableCell>

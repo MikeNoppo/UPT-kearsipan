@@ -9,7 +9,6 @@ interface Reception {
   requestedQuantity: number
   receivedQuantity: number
   unit: string
-  supplier: string
   receiptDate: string
   status: "COMPLETE" | "PARTIAL" | "DIFFERENT"
   notes?: string

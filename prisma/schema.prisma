@@ -104,7 +104,6 @@ model Reception {
   requestedQuantity   Int
   receivedQuantity    Int
   unit                String
-  supplier            String
   receiptDate         DateTime
   status              ReceptionStatus
   notes               String?

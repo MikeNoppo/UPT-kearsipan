@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -18,51 +18,58 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-interface InventoryItem {
+interface PurchaseRequestOption {
   id: string
-  name: string
-  stock: number
+  itemName: string
+  quantity: number
   unit: string
 }
 
+
 interface CreateReceptionDialogProps {
-  inventory: InventoryItem[]
   onReceptionCreated: () => void
 }
 
-export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateReceptionDialogProps) {
+export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDialogProps) {
   const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-
-  // Data form untuk penerimaan baru
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequestOption[]>([])
   const [newReception, setNewReception] = useState({
-    requestId: "",
     itemName: "",
     requestedQuantity: 0,
     receivedQuantity: 0,
     unit: "",
-    supplier: "",
     receiptDate: "",
     notes: "",
     status: "COMPLETE" as "COMPLETE" | "PARTIAL" | "DIFFERENT",
-    itemId: "",
+    requestId: "",
   })
 
-  const handleInventoryItemSelect = (itemId: string) => {
-    const selectedItem = inventory.find(item => item.id === itemId)
-    if (selectedItem) {
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/purchase-requests?status=APPROVED')
+        .then(res => res.json())
+        .then(data => setPurchaseRequests(data.purchaseRequests || []))
+        .catch(() => setPurchaseRequests([]))
+    }
+  }, [isOpen])
+
+  const handlePurchaseRequestSelect = (requestId: string) => {
+    const selected = purchaseRequests.find(pr => pr.id === requestId)
+    if (selected) {
       setNewReception(prev => ({
         ...prev,
-        itemId: itemId,
-        itemName: selectedItem.name,
-        unit: selectedItem.unit,
+        requestId: requestId,
+        itemName: selected.itemName,
+        requestedQuantity: selected.quantity,
+        unit: selected.unit,
       }))
     }
   }
 
   const handleAddReception = async () => {
-    if (!newReception.itemName || !newReception.supplier || !newReception.receiptDate) {
+    if (!newReception.itemName || !newReception.receiptDate) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
@@ -78,7 +85,6 @@ export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateR
       const receptionData = {
         ...newReception,
         receiptDate: new Date(newReception.receiptDate).toISOString(),
-        itemId: newReception.itemId || undefined,
       }
 
       const response = await fetch('/api/reception', {
@@ -101,11 +107,9 @@ export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateR
         requestedQuantity: 0,
         receivedQuantity: 0,
         unit: "",
-        supplier: "",
         receiptDate: "",
         notes: "",
         status: "COMPLETE",
-        itemId: "",
       })
       
       setIsOpen(false)
@@ -145,15 +149,6 @@ export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateR
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="requestId">ID Permintaan (Opsional)</Label>
-              <Input
-                id="requestId"
-                value={newReception.requestId}
-                onChange={(e) => setNewReception({ ...newReception, requestId: e.target.value })}
-                placeholder="REQ001"
-              />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="receiptDate">Tanggal Terima *</Label>
               <Input
                 id="receiptDate"
@@ -163,22 +158,21 @@ export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateR
                 required
               />
             </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="inventoryItem">Pilih dari Inventaris (Opsional)</Label>
-            <Select onValueChange={handleInventoryItemSelect}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih barang dari inventaris" />
-              </SelectTrigger>
-              <SelectContent>
-                {inventory.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} - Stok: {item.stock} {item.unit}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid gap-2">
+              <Label htmlFor="purchaseRequest">Pilih barang dari Permintaan pembelian</Label>
+              <Select onValueChange={handlePurchaseRequestSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih permintaan pembelian yang disetujui" />
+                </SelectTrigger>
+                <SelectContent>
+                  {purchaseRequests.map((pr) => (
+                    <SelectItem key={pr.id} value={pr.id}>
+                      {pr.itemName} - {pr.quantity} {pr.unit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid gap-2">
@@ -251,15 +245,6 @@ export function CreateReceptionDialog({ inventory, onReceptionCreated }: CreateR
             </div>
           </div>
           
-          <div className="grid gap-2">
-            <Label htmlFor="supplier">Supplier *</Label>
-            <Input
-              id="supplier"
-              value={newReception.supplier}
-              onChange={(e) => setNewReception({ ...newReception, supplier: e.target.value })}
-              required
-            />
-          </div>
           
           <div className="grid gap-2">
             <Label htmlFor="notes">Catatan</Label>
