@@ -54,6 +54,13 @@ export async function GET() {
         include: {
           distributedBy: {
             select: { name: true }
+          },
+          items: {
+            select: {
+              itemName: true,
+              quantity: true,
+              unit: true
+            }
           }
         },
         orderBy: { distributionDate: 'desc' },
@@ -136,10 +143,14 @@ export async function GET() {
 
     // Transformasi data distribusi barang ke format activity
     recentDistributions.forEach(distribution => {
+      const itemsText = distribution.items.length > 1 
+        ? `${distribution.items.length} barang` 
+        : distribution.items[0]?.itemName || 'barang'
+      
       inventoryActivities.push({
         id: distribution.id,
         type: 'distribution',
-        title: `Distribusi ${distribution.itemName}`,
+        title: `Distribusi ${itemsText}`,
         status: 'COMPLETE',
         description: getTimeAgo(distribution.distributionDate),
         color: 'bg-blue-500'
