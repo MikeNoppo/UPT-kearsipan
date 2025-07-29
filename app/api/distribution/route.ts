@@ -5,16 +5,19 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 // Schema validation for distribution creation
-const distributionSchema = z.object({
+const distributionItemSchema = z.object({
   itemName: z.string().min(1, "Item name is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unit: z.string().min(1, "Unit is required"),
+  itemId: z.string().optional(),
+})
+
+const distributionSchema = z.object({
   staffName: z.string().min(1, "Staff name is required"),
   department: z.string().min(1, "Department is required"),
   distributionDate: z.string().transform((val) => new Date(val)),
   purpose: z.string().min(1, "Purpose is required"),
-  notes: z.string().optional(),
-  itemId: z.string().optional(),
+  items: z.array(distributionItemSchema).min(1, "At least one item is required"),
 })
 
 // Helper function untuk generate nomor nota distribusi otomatis
@@ -80,9 +83,9 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { noteNumber: { contains: search, mode: "insensitive" } },
-        { itemName: { contains: search, mode: "insensitive" } },
         { staffName: { contains: search, mode: "insensitive" } },
         { purpose: { contains: search, mode: "insensitive" } },
+        { items: { some: { itemName: { contains: search, mode: "insensitive" } } } },
       ]
     }
 
@@ -108,12 +111,16 @@ export async function GET(request: NextRequest) {
               username: true,
             },
           },
-          item: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              stock: true,
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  stock: true,
+                },
+              },
             },
           },
         },
@@ -166,54 +173,115 @@ export async function POST(request: NextRequest) {
       const fallbackNumber = Date.now().toString().slice(-6)
       const fallbackNoteNumber = `DST-${fallbackNumber}`
       
-      const distribution = await prisma.distribution.create({
-        data: {
-          noteNumber: fallbackNoteNumber,
-          distributedById: session.user.id,
-          ...validatedData,
-        },
-        include: {
-          distributedBy: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
+      // Create distribution with items in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const distribution = await tx.distribution.create({
+          data: {
+            noteNumber: fallbackNoteNumber,
+            distributedById: session.user.id,
+            staffName: validatedData.staffName,
+            department: validatedData.department,
+            distributionDate: validatedData.distributionDate,
+            purpose: validatedData.purpose,
+          },
+          include: {
+            distributedBy: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+              },
+            },
+            items: {
+              include: {
+                item: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                    stock: true,
+                  },
+                },
+              },
             },
           },
-          item: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              stock: true,
+        })
+
+        // Create distribution items and update inventory
+        for (const itemData of validatedData.items) {
+          // Create distribution item
+          await tx.distributionItem.create({
+            data: {
+              distributionId: distribution.id,
+              itemName: itemData.itemName,
+              quantity: itemData.quantity,
+              unit: itemData.unit,
+              itemId: itemData.itemId,
             },
-          },
-        },
+          })
+
+          // If linked to inventory item, update stock
+          if (itemData.itemId) {
+            const inventoryItem = await tx.inventoryItem.findUnique({
+              where: { id: itemData.itemId },
+            })
+
+            if (!inventoryItem) {
+              throw new Error(`Inventory item not found: ${itemData.itemName}`)
+            }
+
+            if (inventoryItem.stock < itemData.quantity) {
+              throw new Error(`Insufficient stock for ${itemData.itemName}. Available: ${inventoryItem.stock}, Required: ${itemData.quantity}`)
+            }
+
+            await tx.inventoryItem.update({
+              where: { id: itemData.itemId },
+              data: {
+                stock: {
+                  decrement: itemData.quantity,
+                },
+              },
+            })
+
+            // Create stock transaction record
+            await tx.stockTransaction.create({
+              data: {
+                type: "OUT",
+                quantity: itemData.quantity,
+                description: `Distribution - ${fallbackNoteNumber}: ${itemData.itemName} to ${validatedData.staffName}`,
+                itemId: itemData.itemId,
+                userId: session.user.id,
+              },
+            })
+          }
+        }
+
+        return distribution
       })
       
-      return NextResponse.json(distribution, { status: 201 })
+      return NextResponse.json(result, { status: 201 })
     }
 
-    // If itemId is provided, check if item exists and update stock
-    let inventoryItem = null
-    if (validatedData.itemId) {
-      inventoryItem = await prisma.inventoryItem.findUnique({
-        where: { id: validatedData.itemId },
-      })
+    // Validate inventory items and check stock
+    for (const itemData of validatedData.items) {
+      if (itemData.itemId) {
+        const inventoryItem = await prisma.inventoryItem.findUnique({
+          where: { id: itemData.itemId },
+        })
 
-      if (!inventoryItem) {
-        return NextResponse.json(
-          { error: "Inventory item not found" },
-          { status: 404 }
-        )
-      }
+        if (!inventoryItem) {
+          return NextResponse.json(
+            { error: `Inventory item not found: ${itemData.itemName}` },
+            { status: 404 }
+          )
+        }
 
-      // Check if there's enough stock
-      if (inventoryItem.stock < validatedData.quantity) {
-        return NextResponse.json(
-          { error: "Insufficient stock available" },
-          { status: 400 }
-        )
+        if (inventoryItem.stock < itemData.quantity) {
+          return NextResponse.json(
+            { error: `Insufficient stock for ${itemData.itemName}. Available: ${inventoryItem.stock}, Required: ${itemData.quantity}` },
+            { status: 400 }
+          )
+        }
       }
     }
 
@@ -223,8 +291,11 @@ export async function POST(request: NextRequest) {
       const distribution = await tx.distribution.create({
         data: {
           noteNumber,
-          ...validatedData,
           distributedById: session.user.id,
+          staffName: validatedData.staffName,
+          department: validatedData.department,
+          distributionDate: validatedData.distributionDate,
+          purpose: validatedData.purpose,
         },
         include: {
           distributedBy: {
@@ -234,38 +305,56 @@ export async function POST(request: NextRequest) {
               username: true,
             },
           },
-          item: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              stock: true,
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  stock: true,
+                },
+              },
             },
           },
         },
       })
 
-      // If linked to inventory item, update stock and create stock transaction
-      if (validatedData.itemId && inventoryItem) {
-        await tx.inventoryItem.update({
-          where: { id: validatedData.itemId },
+      // Create distribution items and update inventory
+      for (const itemData of validatedData.items) {
+        // Create distribution item
+        await tx.distributionItem.create({
           data: {
-            stock: {
-              decrement: validatedData.quantity,
-            },
+            distributionId: distribution.id,
+            itemName: itemData.itemName,
+            quantity: itemData.quantity,
+            unit: itemData.unit,
+            itemId: itemData.itemId,
           },
         })
 
-        // Create stock transaction record
-        await tx.stockTransaction.create({
-          data: {
-            type: "OUT",
-            quantity: validatedData.quantity,
-            description: `Distribution - ${noteNumber}: ${validatedData.purpose}`,
-            itemId: validatedData.itemId,
-            userId: session.user.id,
-          },
-        })
+        // If linked to inventory item, update stock
+        if (itemData.itemId) {
+          await tx.inventoryItem.update({
+            where: { id: itemData.itemId },
+            data: {
+              stock: {
+                decrement: itemData.quantity,
+              },
+            },
+          })
+
+          // Create stock transaction record
+          await tx.stockTransaction.create({
+            data: {
+              type: "OUT",
+              quantity: itemData.quantity,
+              description: `Distribution - ${noteNumber}: ${itemData.itemName} to ${validatedData.staffName}`,
+              itemId: itemData.itemId,
+              userId: session.user.id,
+            },
+          })
+        }
       }
 
       return distribution
@@ -282,7 +371,7 @@ export async function POST(request: NextRequest) {
 
     console.error("Error creating distribution:", error)
     return NextResponse.json(
-      { error: "Failed to create distribution" },
+      { error: error instanceof Error ? error.message : "Failed to create distribution" },
       { status: 500 }
     )
   }

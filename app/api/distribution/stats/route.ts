@@ -55,9 +55,11 @@ export async function GET(request: NextRequest) {
       }),
 
       // Total quantity distributed in the period
-      prisma.distribution.aggregate({
+      prisma.distributionItem.aggregate({
         where: {
-          distributionDate: dateFilter,
+          distribution: {
+            distributionDate: dateFilter,
+          },
         },
         _sum: {
           quantity: true,
@@ -73,9 +75,6 @@ export async function GET(request: NextRequest) {
         _count: {
           id: true,
         },
-        _sum: {
-          quantity: true,
-        },
         orderBy: {
           _count: {
             id: "desc",
@@ -89,7 +88,11 @@ export async function GET(request: NextRequest) {
         SELECT 
           DATE_TRUNC('month', "distributionDate") as month,
           COUNT(*)::int as count,
-          SUM(quantity)::int as total_quantity
+          SUM((
+            SELECT SUM(quantity) 
+            FROM distribution_items 
+            WHERE "distributionId" = distributions.id
+          ))::int as total_quantity
         FROM distributions 
         WHERE "distributionDate" >= NOW() - INTERVAL '12 months'
         GROUP BY DATE_TRUNC('month', "distributionDate")
@@ -97,10 +100,12 @@ export async function GET(request: NextRequest) {
       `,
 
       // Top distributed items
-      prisma.distribution.groupBy({
+      prisma.distributionItem.groupBy({
         by: ["itemName"],
         where: {
-          distributionDate: dateFilter,
+          distribution: {
+            distributionDate: dateFilter,
+          },
         },
         _count: {
           id: true,
@@ -124,7 +129,7 @@ export async function GET(request: NextRequest) {
       departmentStats: departmentStats.map((dept) => ({
         department: dept.department,
         count: dept._count.id,
-        totalQuantity: dept._sum.quantity || 0,
+        totalQuantity: 0, // Will be calculated separately if needed
       })),
       monthlyDistributions,
       topDistributedItems: topDistributedItems.map((item) => ({

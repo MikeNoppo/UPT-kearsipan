@@ -64,29 +64,34 @@ import {
  * - Export data untuk reporting
  */
 
-interface Distribution {
+interface DistributionItem {
   id: string
-  noteNumber: string
   itemName: string
   quantity: number
   unit: string
-  staffName: string
-  department: string
-  distributionDate: string
-  purpose: string
-  notes?: string
-  createdAt: string
-  distributedBy: {
-    id: string
-    name: string
-    username: string
-  }
+  itemId?: string
   item?: {
     id: string
     name: string
     category: string
     stock: number
   }
+}
+
+interface Distribution {
+  id: string
+  noteNumber: string
+  staffName: string
+  department: string
+  distributionDate: string
+  purpose: string
+  createdAt: string
+  distributedBy: {
+    id: string
+    name: string
+    username: string
+  }
+  items: DistributionItem[]
 }
 
 interface DistributionStats {
@@ -133,14 +138,23 @@ export default function DistributionPage() {
 
   // Data form untuk distribusi baru
   const [newDistribution, setNewDistribution] = useState({
-    itemName: "",
-    quantity: 1,
-    unit: "",
     staffName: "",
     department: "",
     distributionDate: new Date().toISOString().split('T')[0],
     purpose: "",
-    notes: "",
+    items: [] as Array<{
+      itemName: string
+      quantity: number
+      unit: string
+      itemId?: string
+    }>,
+  })
+
+  // State untuk item yang sedang ditambahkan
+  const [currentItem, setCurrentItem] = useState({
+    itemName: "",
+    quantity: 1,
+    unit: "",
     itemId: "",
   })
 
@@ -223,11 +237,11 @@ export default function DistributionPage() {
   }, [session, status, router])
 
   const handleAddDistribution = async () => {
-    if (!newDistribution.itemName || !newDistribution.staffName || 
-        !newDistribution.department || !newDistribution.purpose) {
+    if (!newDistribution.staffName || !newDistribution.department || 
+        !newDistribution.purpose || newDistribution.items.length === 0) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields and add at least one item",
         variant: "destructive",
       })
       return
@@ -256,14 +270,16 @@ export default function DistributionPage() {
       
       // Reset form
       setNewDistribution({
-        itemName: "",
-        quantity: 1,
-        unit: "",
         staffName: "",
         department: "",
         distributionDate: new Date().toISOString().split('T')[0],
         purpose: "",
-        notes: "",
+        items: [],
+      })
+      setCurrentItem({
+        itemName: "",
+        quantity: 1,
+        unit: "",
         itemId: "",
       })
       setIsAddDialogOpen(false)
@@ -296,14 +312,10 @@ export default function DistributionPage() {
         },
         body: JSON.stringify({
           noteNumber: editingDistribution.noteNumber,
-          itemName: editingDistribution.itemName,
-          quantity: editingDistribution.quantity,
-          unit: editingDistribution.unit,
           staffName: editingDistribution.staffName,
           department: editingDistribution.department,
           distributionDate: new Date(editingDistribution.distributionDate).toISOString(),
           purpose: editingDistribution.purpose,
-          notes: editingDistribution.notes,
         }),
       })
 
@@ -368,13 +380,44 @@ export default function DistributionPage() {
   const handleItemSelection = (itemId: string) => {
     const selectedItem = inventoryItems.find(item => item.id === itemId)
     if (selectedItem) {
-      setNewDistribution(prev => ({
+      setCurrentItem(prev => ({
         ...prev,
         itemId,
         itemName: selectedItem.name,
         unit: selectedItem.unit,
       }))
     }
+  }
+
+  const handleAddItem = () => {
+    if (!currentItem.itemName || !currentItem.unit || currentItem.quantity < 1) {
+      toast({
+        title: "Error",
+        description: "Please fill in all item fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setNewDistribution(prev => ({
+      ...prev,
+      items: [...prev.items, { ...currentItem }]
+    }))
+
+    // Reset current item
+    setCurrentItem({
+      itemName: "",
+      quantity: 1,
+      unit: "",
+      itemId: "",
+    })
+  }
+
+  const handleRemoveItem = (index: number) => {
+    setNewDistribution(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }))
   }
 
   const handleSearch = () => {
@@ -416,12 +459,13 @@ export default function DistributionPage() {
                 Tambah Distribusi
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Tambah Distribusi Baru</DialogTitle>
                 <DialogDescription>Buat catatan distribusi barang baru</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-6 py-4">
+                {/* Basic Distribution Info */}
                 <div className="grid grid-cols-1 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="distributionDate">Tanggal Distribusi *</Label>
@@ -433,60 +477,6 @@ export default function DistributionPage() {
                       disabled={isSubmitting}
                     />
                   </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>Pilih dari Inventaris (Opsional)</Label>
-                  <Select
-                    value={newDistribution.itemId}
-                    onValueChange={handleItemSelection}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih barang dari inventaris..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {inventoryItems.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name} - {item.category} (Stok: {item.stock} {item.unit})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="itemName">Nama Barang *</Label>
-                    <Input
-                      id="itemName"
-                      value={newDistribution.itemName}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, itemName: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="unit">Satuan *</Label>
-                    <Input
-                      id="unit"
-                      value={newDistribution.unit}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, unit: e.target.value })}
-                      disabled={isSubmitting}
-                      placeholder="pcs, box, dll"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="quantity">Jumlah *</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    value={newDistribution.quantity}
-                    onChange={(e) => setNewDistribution({ ...newDistribution, quantity: parseInt(e.target.value) || 1 })}
-                    disabled={isSubmitting}
-                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -521,16 +511,104 @@ export default function DistributionPage() {
                   />
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Catatan (Opsional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={newDistribution.notes}
-                    onChange={(e) => setNewDistribution({ ...newDistribution, notes: e.target.value })}
-                    disabled={isSubmitting}
-                    placeholder="Additional notes..."
-                  />
+                {/* Add Items Section */}
+                <div className="border-t pt-4">
+                  <h3 className="text-lg font-semibold mb-4">Tambah Barang</h3>
+                  
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label>Pilih dari Inventaris (Opsional)</Label>
+                      <Select
+                        value={currentItem.itemId}
+                        onValueChange={handleItemSelection}
+                        disabled={isSubmitting}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih barang dari inventaris..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryItems.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name} - {item.category} (Stok: {item.stock} {item.unit})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="currentItemName">Nama Barang *</Label>
+                        <Input
+                          id="currentItemName"
+                          value={currentItem.itemName}
+                          onChange={(e) => setCurrentItem({ ...currentItem, itemName: e.target.value })}
+                          disabled={isSubmitting}
+                          placeholder="Nama barang"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="currentUnit">Satuan *</Label>
+                        <Input
+                          id="currentUnit"
+                          value={currentItem.unit}
+                          onChange={(e) => setCurrentItem({ ...currentItem, unit: e.target.value })}
+                          disabled={isSubmitting}
+                          placeholder="pcs, box, dll"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="currentQuantity">Jumlah *</Label>
+                        <Input
+                          id="currentQuantity"
+                          type="number"
+                          min="1"
+                          value={currentItem.quantity}
+                          onChange={(e) => setCurrentItem({ ...currentItem, quantity: parseInt(e.target.value) || 1 })}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleAddItem}
+                      disabled={isSubmitting}
+                      className="w-fit"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Tambah Barang
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Items List */}
+                {newDistribution.items.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="text-lg font-semibold mb-4">Daftar Barang ({newDistribution.items.length})</h3>
+                    <div className="space-y-2">
+                      {newDistribution.items.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <span className="font-medium">{item.itemName}</span>
+                            <span className="text-muted-foreground ml-2">
+                              {item.quantity} {item.unit}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveItem(index)}
+                            disabled={isSubmitting}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button onClick={handleAddDistribution} disabled={isSubmitting}>
@@ -651,7 +729,6 @@ export default function DistributionPage() {
                 <TableRow>
                   <TableHead>Nomor Nota</TableHead>
                   <TableHead>Barang</TableHead>
-                  <TableHead>Jumlah</TableHead>
                   <TableHead>Staff Penerima</TableHead>
                   <TableHead>Departemen</TableHead>
                   <TableHead>Tanggal</TableHead>
@@ -663,8 +740,15 @@ export default function DistributionPage() {
                 {distributions.map((distribution) => (
                   <TableRow key={distribution.id}>
                     <TableCell className="font-medium">{distribution.noteNumber}</TableCell>
-                    <TableCell>{distribution.itemName}</TableCell>
-                    <TableCell>{distribution.quantity} {distribution.unit}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        {distribution.items.map((item, index) => (
+                          <div key={index} className="text-sm">
+                            {item.itemName} ({item.quantity} {item.unit})
+                          </div>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell>{distribution.staffName}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{distribution.department}</Badge>
@@ -732,7 +816,7 @@ export default function DistributionPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Distribusi</DialogTitle>
-              <DialogDescription>Ubah informasi distribusi barang</DialogDescription>
+              <DialogDescription>Ubah informasi distribusi barang (catatan: item tidak dapat diubah)</DialogDescription>
             </DialogHeader>
             {editingDistribution && (
               <div className="grid gap-4 py-4">
@@ -756,39 +840,6 @@ export default function DistributionPage() {
                       disabled={isSubmitting}
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-itemName">Nama Barang</Label>
-                    <Input
-                      id="edit-itemName"
-                      value={editingDistribution.itemName}
-                      onChange={(e) => setEditingDistribution({ ...editingDistribution, itemName: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="edit-unit">Satuan</Label>
-                    <Input
-                      id="edit-unit"
-                      value={editingDistribution.unit}
-                      onChange={(e) => setEditingDistribution({ ...editingDistribution, unit: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-quantity">Jumlah</Label>
-                  <Input
-                    id="edit-quantity"
-                    type="number"
-                    min="1"
-                    value={editingDistribution.quantity}
-                    onChange={(e) => setEditingDistribution({ ...editingDistribution, quantity: parseInt(e.target.value) || 1 })}
-                    disabled={isSubmitting}
-                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -822,14 +873,19 @@ export default function DistributionPage() {
                   />
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-notes">Catatan</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={editingDistribution.notes || ""}
-                    onChange={(e) => setEditingDistribution({ ...editingDistribution, notes: e.target.value })}
-                    disabled={isSubmitting}
-                  />
+                {/* Display items as read-only */}
+                <div className="border-t pt-4">
+                  <Label>Barang yang Didistribusikan</Label>
+                  <div className="mt-2 space-y-2">
+                    {editingDistribution.items.map((item, index) => (
+                      <div key={index} className="p-3 border rounded-lg bg-muted">
+                        <span className="font-medium">{item.itemName}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {item.quantity} {item.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

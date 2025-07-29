@@ -7,14 +7,10 @@ import { z } from "zod"
 // Schema validation for distribution update
 const updateDistributionSchema = z.object({
   noteNumber: z.string().min(1, "Note number is required").optional(),
-  itemName: z.string().min(1, "Item name is required").optional(),
-  quantity: z.number().min(1, "Quantity must be at least 1").optional(),
-  unit: z.string().min(1, "Unit is required").optional(),
   staffName: z.string().min(1, "Staff name is required").optional(),
   department: z.string().min(1, "Department is required").optional(),
   distributionDate: z.string().transform((val) => new Date(val)).optional(),
   purpose: z.string().min(1, "Purpose is required").optional(),
-  notes: z.string().optional(),
 })
 
 // GET /api/distribution/[id] - Get specific distribution
@@ -38,12 +34,16 @@ export async function GET(
             username: true,
           },
         },
-        item: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            stock: true,
+        items: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                stock: true,
+              },
+            },
           },
         },
       },
@@ -83,7 +83,7 @@ export async function PATCH(
     // Check if distribution exists
     const existingDistribution = await prisma.distribution.findUnique({
       where: { id: params.id },
-      include: { item: true },
+      include: { items: true },
     })
 
     if (!existingDistribution) {
@@ -119,12 +119,16 @@ export async function PATCH(
             username: true,
           },
         },
-        item: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            stock: true,
+        items: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                stock: true,
+              },
+            },
           },
         },
       },
@@ -169,7 +173,7 @@ export async function DELETE(
     // Check if distribution exists
     const existingDistribution = await prisma.distribution.findUnique({
       where: { id: params.id },
-      include: { item: true },
+      include: { items: true },
     })
 
     if (!existingDistribution) {
@@ -181,28 +185,35 @@ export async function DELETE(
 
     // Delete distribution and potentially restore stock in a transaction
     await prisma.$transaction(async (tx) => {
-      // If linked to inventory item, restore stock
-      if (existingDistribution.itemId && existingDistribution.item) {
-        await tx.inventoryItem.update({
-          where: { id: existingDistribution.itemId },
-          data: {
-            stock: {
-              increment: existingDistribution.quantity,
+      // Restore stock for each item that was linked to inventory
+      for (const distributionItem of existingDistribution.items) {
+        if (distributionItem.itemId) {
+          await tx.inventoryItem.update({
+            where: { id: distributionItem.itemId },
+            data: {
+              stock: {
+                increment: distributionItem.quantity,
+              },
             },
-          },
-        })
+          })
 
-        // Create stock transaction record for the restoration
-        await tx.stockTransaction.create({
-          data: {
-            type: "IN",
-            quantity: existingDistribution.quantity,
-            description: `Stock restored from deleted distribution - ${existingDistribution.noteNumber}`,
-            itemId: existingDistribution.itemId,
-            userId: session.user.id,
-          },
-        })
+          // Create stock transaction record for the restoration
+          await tx.stockTransaction.create({
+            data: {
+              type: "IN",
+              quantity: distributionItem.quantity,
+              description: `Stock restored from deleted distribution - ${existingDistribution.noteNumber}: ${distributionItem.itemName}`,
+              itemId: distributionItem.itemId,
+              userId: session.user.id,
+            },
+          })
+        }
       }
+
+      // Delete distribution items first (cascade should handle this but let's be explicit)
+      await tx.distributionItem.deleteMany({
+        where: { distributionId: params.id },
+      })
 
       // Delete the distribution
       await tx.distribution.delete({

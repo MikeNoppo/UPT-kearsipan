@@ -51,7 +51,7 @@ model InventoryItem {
   // Relations
   stockTransactions StockTransaction[]
   receptions        Reception[]
-  distributions     Distribution[]
+  distributionItems DistributionItem[]
   purchaseRequests  PurchaseRequest[]
 
   @@map("inventory_items")
@@ -123,24 +123,35 @@ model Reception {
 model Distribution {
   id                  String   @id @default(cuid())
   noteNumber          String   @unique
-  itemName            String
-  quantity            Int
-  unit                String
   staffName           String
   department          String
   distributionDate    DateTime
   purpose             String
-  notes               String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   // Relations
   distributedById     String
   distributedBy       User @relation("DistributedBy", fields: [distributedById], references: [id])
+  items               DistributionItem[]
+
+  @@map("distributions")
+}
+
+model DistributionItem {
+  id                  String   @id @default(cuid())
+  itemName            String
+  quantity            Int
+  unit                String
+  createdAt           DateTime @default(now())
+
+  // Relations
+  distributionId      String
+  distribution        Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
   itemId              String?
   item                InventoryItem? @relation(fields: [itemId], references: [id])
 
-  @@map("distributions")
+  @@map("distribution_items")
 }
 
 model Letter {
