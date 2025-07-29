@@ -158,6 +158,15 @@ export default function DistributionPage() {
     itemId: "",
   })
 
+  // State untuk editing item dalam edit dialog
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
+  const [editingItemData, setEditingItemData] = useState({
+    itemName: "",
+    quantity: 1,
+    unit: "",
+    itemId: "",
+  })
+
   // Mengambil data distribusi dengan filter dan pagination
   const fetchDistributions = useCallback(async () => {
     try {
@@ -316,6 +325,12 @@ export default function DistributionPage() {
           department: editingDistribution.department,
           distributionDate: new Date(editingDistribution.distributionDate).toISOString(),
           purpose: editingDistribution.purpose,
+          items: editingDistribution.items.map((item: any) => ({
+            itemName: item.itemName,
+            quantity: item.quantity,
+            unit: item.unit,
+            itemId: item.itemId || null,
+          })),
         }),
       })
 
@@ -329,6 +344,13 @@ export default function DistributionPage() {
         dist.id === updatedDistribution.id ? updatedDistribution : dist
       ))
       setEditingDistribution(null)
+      setEditingItemIndex(null)
+      setEditingItemData({
+        itemName: "",
+        quantity: 1,
+        unit: "",
+        itemId: "",
+      })
       await fetchDistributionStats()
       
       toast({
@@ -418,6 +440,88 @@ export default function DistributionPage() {
       ...prev,
       items: prev.items.filter((_, i) => i !== index)
     }))
+  }
+
+  // Edit dialog item functions
+  const handleEditItem = (index: number) => {
+    const item = editingDistribution?.items[index]
+    if (item) {
+      setEditingItemIndex(index)
+      setEditingItemData({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unit: item.unit,
+        itemId: item.itemId || "",
+      })
+    }
+  }
+
+  const handleSaveEditingItem = () => {
+    if (editingDistribution && editingItemIndex !== null) {
+      const updatedItems = [...editingDistribution.items]
+      updatedItems[editingItemIndex] = {
+        ...updatedItems[editingItemIndex],
+        itemName: editingItemData.itemName,
+        quantity: editingItemData.quantity,
+        unit: editingItemData.unit,
+        itemId: editingItemData.itemId || undefined,
+      }
+      
+      setEditingDistribution({
+        ...editingDistribution,
+        items: updatedItems
+      })
+      
+      setEditingItemIndex(null)
+      setEditingItemData({
+        itemName: "",
+        quantity: 1,
+        unit: "",
+        itemId: "",
+      })
+    }
+  }
+
+  const handleCancelEditingItem = () => {
+    setEditingItemIndex(null)
+    setEditingItemData({
+      itemName: "",
+      quantity: 1,
+      unit: "",
+      itemId: "",
+    })
+  }
+
+  const handleRemoveEditingItem = (index: number) => {
+    if (editingDistribution) {
+      const updatedItems = editingDistribution.items.filter((_, i) => i !== index)
+      setEditingDistribution({
+        ...editingDistribution,
+        items: updatedItems
+      })
+    }
+  }
+
+  const handleAddNewItemToEdit = () => {
+    if (editingDistribution && editingItemData.itemName && editingItemData.unit) {
+      setEditingDistribution({
+        ...editingDistribution,
+        items: [...editingDistribution.items, {
+          id: Date.now().toString(), // Temporary ID for new items
+          itemName: editingItemData.itemName,
+          quantity: editingItemData.quantity,
+          unit: editingItemData.unit,
+          itemId: editingItemData.itemId || undefined,
+        }]
+      })
+      
+      setEditingItemData({
+        itemName: "",
+        quantity: 1,
+        unit: "",
+        itemId: "",
+      })
+    }
   }
 
   const handleSearch = () => {
@@ -873,19 +977,216 @@ export default function DistributionPage() {
                   />
                 </div>
 
-                {/* Display items as read-only */}
+                {/* Editable items section */}
                 <div className="border-t pt-4">
-                  <Label>Barang yang Didistribusikan</Label>
-                  <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-lg font-semibold">Barang yang Didistribusikan</Label>
+                    <span className="text-sm text-muted-foreground">
+                      {editingDistribution.items.length} item(s)
+                    </span>
+                  </div>
+                  
+                  {/* Items list */}
+                  <div className="space-y-3">
                     {editingDistribution.items.map((item, index) => (
-                      <div key={index} className="p-3 border rounded-lg bg-muted">
-                        <span className="font-medium">{item.itemName}</span>
-                        <span className="text-muted-foreground ml-2">
-                          {item.quantity} {item.unit}
-                        </span>
+                      <div key={index} className="border rounded-lg">
+                        {editingItemIndex === index ? (
+                          /* Editing mode */
+                          <div className="p-4 space-y-3">
+                            <div className="grid gap-2">
+                              <Label>Pilih dari Inventaris (Opsional)</Label>
+                              <Select
+                                value={editingItemData.itemId}
+                                onValueChange={(value) => {
+                                  const selectedItem = inventoryItems.find(item => item.id === value)
+                                  if (selectedItem) {
+                                    setEditingItemData({
+                                      ...editingItemData,
+                                      itemId: value,
+                                      itemName: selectedItem.name,
+                                      unit: selectedItem.unit,
+                                    })
+                                  } else {
+                                    setEditingItemData({
+                                      ...editingItemData,
+                                      itemId: value,
+                                    })
+                                  }
+                                }}
+                                disabled={isSubmitting}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih barang dari inventaris..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {inventoryItems.map((inventoryItem) => (
+                                    <SelectItem key={inventoryItem.id} value={inventoryItem.id}>
+                                      {inventoryItem.name} - {inventoryItem.category} (Stok: {inventoryItem.stock} {inventoryItem.unit})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="grid gap-2">
+                                <Label>Nama Barang</Label>
+                                <Input
+                                  value={editingItemData.itemName}
+                                  onChange={(e) => setEditingItemData({ ...editingItemData, itemName: e.target.value })}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label>Satuan</Label>
+                                <Input
+                                  value={editingItemData.unit}
+                                  onChange={(e) => setEditingItemData({ ...editingItemData, unit: e.target.value })}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label>Jumlah</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={editingItemData.quantity}
+                                  onChange={(e) => setEditingItemData({ ...editingItemData, quantity: parseInt(e.target.value) || 1 })}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleSaveEditingItem}
+                                disabled={!editingItemData.itemName || !editingItemData.unit}
+                              >
+                                Simpan
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelEditingItem}
+                              >
+                                Batal
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Display mode */
+                          <div className="p-3 flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{item.itemName}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {item.quantity} {item.unit}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditItem(index)}
+                                disabled={isSubmitting}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRemoveEditingItem(index)}
+                                disabled={isSubmitting}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+
+                  {/* Add new item section - Only show when not editing any item */}
+                  {editingItemIndex === null && (
+                    <div className="mt-4 p-4 border rounded-lg bg-muted/50">
+                      <Label className="text-sm font-medium mb-3 block">Tambah Item Baru</Label>
+                      
+                      <div className="space-y-3">
+                        <div className="grid gap-2">
+                          <Select
+                            value={editingItemData.itemId}
+                            onValueChange={(value) => {
+                              const selectedItem = inventoryItems.find(item => item.id === value)
+                              if (selectedItem) {
+                                setEditingItemData({
+                                  ...editingItemData,
+                                  itemId: value,
+                                  itemName: selectedItem.name,
+                                  unit: selectedItem.unit,
+                                })
+                              } else {
+                                setEditingItemData({
+                                  ...editingItemData,
+                                  itemId: value,
+                                })
+                              }
+                            }}
+                            disabled={isSubmitting}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih barang dari inventaris..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {inventoryItems.map((inventoryItem) => (
+                                <SelectItem key={inventoryItem.id} value={inventoryItem.id}>
+                                  {inventoryItem.name} - {inventoryItem.category} (Stok: {inventoryItem.stock} {inventoryItem.unit})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-3">
+                          <Input
+                            placeholder="Nama barang"
+                            value={editingItemData.itemName}
+                            onChange={(e) => setEditingItemData({ ...editingItemData, itemName: e.target.value })}
+                            disabled={isSubmitting}
+                          />
+                          <Input
+                            placeholder="Satuan"
+                            value={editingItemData.unit}
+                            onChange={(e) => setEditingItemData({ ...editingItemData, unit: e.target.value })}
+                            disabled={isSubmitting}
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Jumlah"
+                            min="1"
+                            value={editingItemData.quantity}
+                            onChange={(e) => setEditingItemData({ ...editingItemData, quantity: parseInt(e.target.value) || 1 })}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleAddNewItemToEdit}
+                          disabled={!editingItemData.itemName || !editingItemData.unit || isSubmitting}
+                          className="w-fit"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Tambah Item
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

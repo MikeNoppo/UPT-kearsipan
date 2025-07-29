@@ -5,12 +5,21 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 // Schema validation for distribution update
+const updateDistributionItemSchema = z.object({
+  id: z.string().optional(),
+  itemName: z.string().min(1, "Item name is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  unit: z.string().min(1, "Unit is required"),
+  itemId: z.string().optional(),
+})
+
 const updateDistributionSchema = z.object({
   noteNumber: z.string().min(1, "Note number is required").optional(),
   staffName: z.string().min(1, "Staff name is required").optional(),
   department: z.string().min(1, "Department is required").optional(),
   distributionDate: z.string().transform((val) => new Date(val)).optional(),
   purpose: z.string().min(1, "Purpose is required").optional(),
+  items: z.array(updateDistributionItemSchema).optional(),
 })
 
 // GET /api/distribution/[id] - Get specific distribution
@@ -107,34 +116,159 @@ export async function PATCH(
       }
     }
 
-    // Update distribution
-    const updatedDistribution = await prisma.distribution.update({
-      where: { id: params.id },
-      data: validatedData,
-      include: {
-        distributedBy: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
+    // If items are being updated, validate inventory
+    if (validatedData.items) {
+      for (const itemData of validatedData.items) {
+        if (itemData.itemId) {
+          const inventoryItem = await prisma.inventoryItem.findUnique({
+            where: { id: itemData.itemId },
+          })
+
+          if (!inventoryItem) {
+            return NextResponse.json(
+              { error: `Inventory item not found: ${itemData.itemName}` },
+              { status: 404 }
+            )
+          }
+
+          // Check if we need to validate stock (comparing with existing quantity)
+          const existingItem = existingDistribution.items.find(item => item.itemId === itemData.itemId)
+          const existingQuantity = existingItem ? existingItem.quantity : 0
+          const quantityDifference = itemData.quantity - existingQuantity
+
+          if (quantityDifference > 0 && inventoryItem.stock < quantityDifference) {
+            return NextResponse.json(
+              { error: `Insufficient stock for ${itemData.itemName}. Available: ${inventoryItem.stock}, Required additional: ${quantityDifference}` },
+              { status: 400 }
+            )
+          }
+        }
+      }
+    }
+
+    // Update distribution and items in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Prepare update data for distribution (excluding items)
+      const updateData: any = {}
+      if (validatedData.noteNumber) updateData.noteNumber = validatedData.noteNumber
+      if (validatedData.staffName) updateData.staffName = validatedData.staffName
+      if (validatedData.department) updateData.department = validatedData.department
+      if (validatedData.distributionDate) updateData.distributionDate = validatedData.distributionDate
+      if (validatedData.purpose) updateData.purpose = validatedData.purpose
+
+      // Update the distribution basic info
+      const distribution = await tx.distribution.update({
+        where: { id: params.id },
+        data: updateData,
+        include: {
+          distributedBy: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+            },
           },
         },
-        items: {
-          include: {
-            item: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                stock: true,
+      })
+
+      // If items are being updated
+      if (validatedData.items) {
+        // First, restore stock for old items that are linked to inventory
+        for (const oldItem of existingDistribution.items) {
+          if (oldItem.itemId) {
+            await tx.inventoryItem.update({
+              where: { id: oldItem.itemId },
+              data: {
+                stock: {
+                  increment: oldItem.quantity,
+                },
+              },
+            })
+
+            // Create stock transaction for restoration
+            await tx.stockTransaction.create({
+              data: {
+                type: "IN",
+                quantity: oldItem.quantity,
+                description: `Stock restored from updated distribution - ${distribution.noteNumber}: ${oldItem.itemName}`,
+                itemId: oldItem.itemId,
+                userId: session.user.id,
+              },
+            })
+          }
+        }
+
+        // Delete all existing items
+        await tx.distributionItem.deleteMany({
+          where: { distributionId: params.id },
+        })
+
+        // Create new items and update inventory
+        for (const itemData of validatedData.items) {
+          // Create new distribution item
+          await tx.distributionItem.create({
+            data: {
+              distributionId: params.id,
+              itemName: itemData.itemName,
+              quantity: itemData.quantity,
+              unit: itemData.unit,
+              itemId: itemData.itemId,
+            },
+          })
+
+          // If linked to inventory item, update stock
+          if (itemData.itemId) {
+            await tx.inventoryItem.update({
+              where: { id: itemData.itemId },
+              data: {
+                stock: {
+                  decrement: itemData.quantity,
+                },
+              },
+            })
+
+            // Create stock transaction record
+            await tx.stockTransaction.create({
+              data: {
+                type: "OUT",
+                quantity: itemData.quantity,
+                description: `Distribution updated - ${distribution.noteNumber}: ${itemData.itemName} to ${distribution.staffName}`,
+                itemId: itemData.itemId,
+                userId: session.user.id,
+              },
+            })
+          }
+        }
+      }
+
+      // Return updated distribution with items
+      return await tx.distribution.findUnique({
+        where: { id: params.id },
+        include: {
+          distributedBy: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+            },
+          },
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  stock: true,
+                },
               },
             },
           },
         },
-      },
+      })
     })
 
-    return NextResponse.json(updatedDistribution)
+    return NextResponse.json(result)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
