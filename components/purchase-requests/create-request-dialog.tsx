@@ -37,6 +37,7 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [isCustomItem, setIsCustomItem] = useState(false)
   const [newRequest, setNewRequest] = useState({
+    itemId: undefined as string | undefined,
     itemName: "",
     quantity: 0,
     unit: "",
@@ -69,13 +70,14 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
   const handleInventorySelection = (itemId: string) => {
     if (itemId === "custom") {
       setIsCustomItem(true)
-      setNewRequest({ ...newRequest, itemName: "", unit: "" })
+      setNewRequest({ ...newRequest, itemId: undefined, itemName: "", unit: "" })
     } else {
       const selectedItem = inventoryItems.find(item => item.id === itemId)
       if (selectedItem) {
         setIsCustomItem(false)
         setNewRequest({ 
           ...newRequest, 
+          itemId: selectedItem.id,
           itemName: selectedItem.name,
           unit: selectedItem.unit
         })
@@ -87,7 +89,7 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
     if (!open) {
-      setNewRequest({ itemName: "", quantity: 0, unit: "", reason: "" })
+      setNewRequest({ itemId: undefined, itemName: "", quantity: 0, unit: "", reason: "" })
       setIsCustomItem(false)
     }
   }
@@ -118,7 +120,7 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
         throw new Error(errorData.error || 'Failed to create purchase request')
       }
 
-      setNewRequest({ itemName: "", quantity: 0, unit: "", reason: "" })
+      setNewRequest({ itemId: undefined, itemName: "", quantity: 0, unit: "", reason: "" })
       setIsCustomItem(false)
       setIsOpen(false)
       onRequestCreated()
