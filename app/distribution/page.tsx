@@ -1,47 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DistributionFilter } from "@/components/distribution/distribution-filter"
-import { DistributionsTable } from "@/components/distribution/distributions-table"
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { AddDistributionDialog } from "@/components/distribution/add-distribution-dialog"
-import { EditDistributionDialog } from "@/components/distribution/edit-distribution-dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
-import { 
-  Plus, 
-  Trash2, 
-  Edit, 
-  Loader2, 
-  FileText, 
-  Package,
-  Calendar
-} from "lucide-react"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { DistributionStatsCards } from "@/components/distribution/distribution-stats-cards";
+import { DistributionFilter } from "@/components/distribution/distribution-filter";
+import { DistributionsTable } from "@/components/distribution/distributions-table";
+import { AddDistributionDialog } from "@/components/distribution/add-distribution-dialog";
+import { EditDistributionDialog } from "@/components/distribution/edit-distribution-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 /**
  * Distribution Page - Halaman distribusi/pengeluaran barang
- * 
+ *
  * Fungsi utama:
  * - Mengelola pengeluaran barang dari inventaris ke staff/department
  * - Mencatat siapa yang menerima barang dan untuk keperluan apa
  * - Generate nomor nota distribusi otomatis
  * - Update stok inventaris secara real-time saat distribusi
- * 
+ *
  * Fitur yang tersedia:
  * - Form distribusi dengan validasi stok
  * - Tracking penerima, department, dan tujuan penggunaan
@@ -49,14 +36,14 @@ import {
  * - Filter berdasarkan department dan tanggal
  * - Statistik distribusi per department dan item
  * - Pagination untuk handling data besar
- * 
+ *
  * Data yang dicatat:
  * - Nomor nota distribusi
  * - Nama staff penerima dan department
  * - Barang yang didistribusikan dan jumlahnya
  * - Tanggal distribusi dan tujuan penggunaan
  * - Catatan tambahan jika diperlukan
- * 
+ *
  * Kontrol yang tersedia:
  * - Edit dan delete distribusi (untuk koreksi)
  * - Search dan filter advanced
@@ -64,90 +51,92 @@ import {
  */
 
 interface DistributionItem {
-  id: string
-  itemName: string
-  quantity: number
-  unit: string
-  itemId?: string
+  id: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  itemId?: string;
   item?: {
-    id: string
-    name: string
-    category: string
-    stock: number
-  }
+    id: string;
+    name: string;
+    category: string;
+    stock: number;
+  };
 }
 
 interface Distribution {
-  id: string
-  noteNumber: string
-  staffName: string
-  department: string
-  distributionDate: string
-  purpose: string
-  createdAt: string
+  id: string;
+  noteNumber: string;
+  staffName: string;
+  department: string;
+  distributionDate: string;
+  purpose: string;
+  createdAt: string;
   distributedBy: {
-    id: string
-    name: string
-    username: string
-  }
-  items: DistributionItem[]
+    id: string;
+    name: string;
+    username: string;
+  };
+  items: DistributionItem[];
 }
 
 interface DistributionStats {
-  totalDistributions: number
-  recentDistributions: number
-  totalQuantityDistributed: number
+  totalDistributions: number;
+  recentDistributions: number;
+  totalQuantityDistributed: number;
   departmentStats: Array<{
-    department: string
-    count: number
-    totalQuantity: number
-  }>
+    department: string;
+    count: number;
+    totalQuantity: number;
+  }>;
   topDistributedItems: Array<{
-    itemName: string
-    count: number
-    totalQuantity: number
-  }>
+    itemName: string;
+    count: number;
+    totalQuantity: number;
+  }>;
 }
 
 interface InventoryItem {
-  id: string
-  name: string
-  category: string
-  unit: string
-  stock: number
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  stock: number;
 }
 
 export default function DistributionPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status } = useSession();
   // State untuk data distribusi dan statistik
-  const [distributions, setDistributions] = useState<Distribution[]>([])
-  const [distributionStats, setDistributionStats] = useState<DistributionStats | null>(null)
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [editingDistribution, setEditingDistribution] = useState<Distribution | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState("all")
-  const [dateRange, setDateRange] = useState({ start: "", end: "" })
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const router = useRouter()
-  const { toast } = useToast()
+  const [distributions, setDistributions] = useState<Distribution[]>([]);
+  const [distributionStats, setDistributionStats] =
+    useState<DistributionStats | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingDistribution, setEditingDistribution] =
+    useState<Distribution | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const router = useRouter();
+  const { toast } = useToast();
 
   // Data form untuk distribusi baru
   const [newDistribution, setNewDistribution] = useState({
     staffName: "",
     department: "",
-    distributionDate: new Date().toISOString().split('T')[0],
+    distributionDate: new Date().toISOString().split("T")[0],
     purpose: "",
     items: [] as Array<{
-      itemName: string
-      quantity: number
-      unit: string
-      itemId?: string
+      itemName: string;
+      quantity: number;
+      unit: string;
+      itemId?: string;
     }>,
-  })
+  });
 
   // State untuk item yang sedang ditambahkan
   const [currentItem, setCurrentItem] = useState({
@@ -155,16 +144,16 @@ export default function DistributionPage() {
     quantity: 1,
     unit: "",
     itemId: "",
-  })
+  });
 
   // State untuk editing item dalam edit dialog
-  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [editingItemData, setEditingItemData] = useState({
     itemName: "",
     quantity: 1,
     unit: "",
     itemId: "",
-  })
+  });
 
   // Mengambil data distribusi dengan filter dan pagination
   const fetchDistributions = useCallback(async () => {
@@ -173,89 +162,95 @@ export default function DistributionPage() {
         page: currentPage.toString(),
         limit: "10",
         ...(searchTerm && { search: searchTerm }),
-        ...(departmentFilter && departmentFilter !== "all" && { department: departmentFilter }),
+        ...(departmentFilter &&
+          departmentFilter !== "all" && { department: departmentFilter }),
         ...(dateRange.start && { startDate: dateRange.start }),
         ...(dateRange.end && { endDate: dateRange.end }),
-      })
+      });
 
-      const response = await fetch(`/api/distribution?${params}`)
+      const response = await fetch(`/api/distribution?${params}`);
       if (!response.ok) {
-        throw new Error("Failed to fetch distributions")
+        throw new Error("Failed to fetch distributions");
       }
-      const data = await response.json()
-      setDistributions(data.distributions)
-      setTotalPages(data.pagination.pages)
+      const data = await response.json();
+      setDistributions(data.distributions);
+      setTotalPages(data.pagination.pages);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch distributions",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [currentPage, searchTerm, departmentFilter, dateRange, toast])
+  }, [currentPage, searchTerm, departmentFilter, dateRange, toast]);
 
   // Mengambil statistik distribusi
   const fetchDistributionStats = useCallback(async () => {
     try {
-      const response = await fetch("/api/distribution/stats?period=month")
+      const response = await fetch("/api/distribution/stats?period=month");
       if (!response.ok) {
-        throw new Error("Failed to fetch distribution statistics")
+        throw new Error("Failed to fetch distribution statistics");
       }
-      const data = await response.json()
-      setDistributionStats(data)
+      const data = await response.json();
+      setDistributionStats(data);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch distribution statistics",
         variant: "destructive",
-      })
+      });
     }
-  }, [toast])
+  }, [toast]);
 
   const fetchInventoryItems = useCallback(async () => {
     try {
-      const response = await fetch("/api/inventory")
+      const response = await fetch("/api/inventory");
       if (!response.ok) {
-        throw new Error("Failed to fetch inventory items")
+        throw new Error("Failed to fetch inventory items");
       }
-      const data = await response.json()
-      setInventoryItems(data)
+      const data = await response.json();
+      setInventoryItems(data);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch inventory items",
         variant: "destructive",
-      })
+      });
     }
-  }, [toast])
+  }, [toast]);
 
   useEffect(() => {
-    if (status === "loading") return
+    if (status === "loading") return;
 
     if (!session) {
-      router.push("/auth/signin")
-      return
+      router.push("/auth/signin");
+      return;
     }
 
-    fetchDistributions()
-    fetchDistributionStats()
-    fetchInventoryItems()
-  }, [session, status, router])
+    fetchDistributions();
+    fetchDistributionStats();
+    fetchInventoryItems();
+  }, [session, status, router]);
 
   const handleAddDistribution = async () => {
-    if (!newDistribution.staffName || !newDistribution.department || 
-        !newDistribution.purpose || newDistribution.items.length === 0) {
+    if (
+      !newDistribution.staffName ||
+      !newDistribution.department ||
+      !newDistribution.purpose ||
+      newDistribution.items.length === 0
+    ) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields and add at least one item",
+        description:
+          "Please fill in all required fields and add at least one item",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       const response = await fetch("/api/distribution", {
         method: "POST",
@@ -264,166 +259,192 @@ export default function DistributionPage() {
         },
         body: JSON.stringify({
           ...newDistribution,
-          distributionDate: new Date(newDistribution.distributionDate).toISOString(),
+          distributionDate: new Date(
+            newDistribution.distributionDate
+          ).toISOString(),
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to create distribution")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create distribution");
       }
 
-      const createdDistribution = await response.json()
-      setDistributions([createdDistribution, ...distributions])
-      
+      const createdDistribution = await response.json();
+      setDistributions([createdDistribution, ...distributions]);
+
       // Reset form
       setNewDistribution({
         staffName: "",
         department: "",
-        distributionDate: new Date().toISOString().split('T')[0],
+        distributionDate: new Date().toISOString().split("T")[0],
         purpose: "",
         items: [],
-      })
+      });
       setCurrentItem({
         itemName: "",
         quantity: 1,
         unit: "",
         itemId: "",
-      })
-      setIsAddDialogOpen(false)
-      await fetchDistributionStats()
-      
+      });
+      setIsAddDialogOpen(false);
+      await fetchDistributionStats();
+
       toast({
         title: "Success",
         description: "Distribution created successfully",
-      })
+      });
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create distribution",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create distribution",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleEditDistribution = async () => {
-    if (!editingDistribution) return
+    if (!editingDistribution) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/distribution/${editingDistribution.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          noteNumber: editingDistribution.noteNumber,
-          staffName: editingDistribution.staffName,
-          department: editingDistribution.department,
-          distributionDate: new Date(editingDistribution.distributionDate).toISOString(),
-          purpose: editingDistribution.purpose,
-          items: editingDistribution.items.map((item: any) => ({
-            itemName: item.itemName,
-            quantity: item.quantity,
-            unit: item.unit,
-            itemId: item.itemId || null,
-          })),
-        }),
-      })
+      const response = await fetch(
+        `/api/distribution/${editingDistribution.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            noteNumber: editingDistribution.noteNumber,
+            staffName: editingDistribution.staffName,
+            department: editingDistribution.department,
+            distributionDate: new Date(
+              editingDistribution.distributionDate
+            ).toISOString(),
+            purpose: editingDistribution.purpose,
+            items: editingDistribution.items.map((item: any) => ({
+              itemName: item.itemName,
+              quantity: item.quantity,
+              unit: item.unit,
+              itemId: item.itemId || null,
+            })),
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to update distribution")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update distribution");
       }
 
-      const updatedDistribution = await response.json()
-      setDistributions(distributions.map((dist) => 
-        dist.id === updatedDistribution.id ? updatedDistribution : dist
-      ))
-      setEditingDistribution(null)
-      setEditingItemIndex(null)
+      const updatedDistribution = await response.json();
+      setDistributions(
+        distributions.map((dist) =>
+          dist.id === updatedDistribution.id ? updatedDistribution : dist
+        )
+      );
+      setEditingDistribution(null);
+      setEditingItemIndex(null);
       setEditingItemData({
         itemName: "",
         quantity: 1,
         unit: "",
         itemId: "",
-      })
-      await fetchDistributionStats()
-      
+      });
+      await fetchDistributionStats();
+
       toast({
         title: "Success",
         description: "Distribution updated successfully",
-      })
+      });
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update distribution",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update distribution",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleDeleteDistribution = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this distribution? This will restore the items to inventory.")) {
-      return
+    if (
+      !confirm(
+        "Are you sure you want to delete this distribution? This will restore the items to inventory."
+      )
+    ) {
+      return;
     }
 
     try {
       const response = await fetch(`/api/distribution/${id}`, {
         method: "DELETE",
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to delete distribution")
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete distribution");
       }
 
-      setDistributions(distributions.filter((dist) => dist.id !== id))
-      await fetchDistributionStats()
-      
+      setDistributions(distributions.filter((dist) => dist.id !== id));
+      await fetchDistributionStats();
+
       toast({
         title: "Success",
         description: "Distribution deleted successfully",
-      })
+      });
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete distribution",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete distribution",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleItemSelection = (itemId: string) => {
-    const selectedItem = inventoryItems.find(item => item.id === itemId)
+    const selectedItem = inventoryItems.find((item) => item.id === itemId);
     if (selectedItem) {
-      setCurrentItem(prev => ({
+      setCurrentItem((prev) => ({
         ...prev,
         itemId,
         itemName: selectedItem.name,
         unit: selectedItem.unit,
-      }))
+      }));
     }
-  }
+  };
 
   const handleAddItem = () => {
-    if (!currentItem.itemName || !currentItem.unit || currentItem.quantity < 1) {
+    if (
+      !currentItem.itemName ||
+      !currentItem.unit ||
+      currentItem.quantity < 1
+    ) {
       toast({
         title: "Error",
         description: "Please fill in all item fields",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setNewDistribution(prev => ({
+    setNewDistribution((prev) => ({
       ...prev,
-      items: [...prev.items, { ...currentItem }]
-    }))
+      items: [...prev.items, { ...currentItem }],
+    }));
 
     // Reset current item
     setCurrentItem({
@@ -431,111 +452,122 @@ export default function DistributionPage() {
       quantity: 1,
       unit: "",
       itemId: "",
-    })
-  }
+    });
+  };
 
   const handleRemoveItem = (index: number) => {
-    setNewDistribution(prev => ({
+    setNewDistribution((prev) => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
-    }))
-  }
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
 
   // Edit dialog item functions
   const handleEditItem = (index: number) => {
-    const item = editingDistribution?.items[index]
+    const item = editingDistribution?.items[index];
     if (item) {
-      setEditingItemIndex(index)
+      setEditingItemIndex(index);
       setEditingItemData({
         itemName: item.itemName,
         quantity: item.quantity,
         unit: item.unit,
         itemId: item.itemId || "",
-      })
+      });
     }
-  }
+  };
 
   const handleSaveEditingItem = () => {
     if (editingDistribution && editingItemIndex !== null) {
-      const updatedItems = [...editingDistribution.items]
+      const updatedItems = [...editingDistribution.items];
       updatedItems[editingItemIndex] = {
         ...updatedItems[editingItemIndex],
         itemName: editingItemData.itemName,
         quantity: editingItemData.quantity,
         unit: editingItemData.unit,
         itemId: editingItemData.itemId || undefined,
-      }
-      
+      };
+
       setEditingDistribution({
         ...editingDistribution,
-        items: updatedItems
-      })
-      
-      setEditingItemIndex(null)
+        items: updatedItems,
+      });
+
+      setEditingItemIndex(null);
       setEditingItemData({
         itemName: "",
         quantity: 1,
         unit: "",
         itemId: "",
-      })
+      });
     }
-  }
+  };
 
   const handleCancelEditingItem = () => {
-    setEditingItemIndex(null)
+    setEditingItemIndex(null);
     setEditingItemData({
       itemName: "",
       quantity: 1,
       unit: "",
       itemId: "",
-    })
-  }
+    });
+  };
 
   const handleRemoveEditingItem = (index: number) => {
     if (editingDistribution) {
-      const updatedItems = editingDistribution.items.filter((_, i) => i !== index)
+      const updatedItems = editingDistribution.items.filter(
+        (_, i) => i !== index
+      );
       setEditingDistribution({
         ...editingDistribution,
-        items: updatedItems
-      })
+        items: updatedItems,
+      });
     }
-  }
+  };
 
   const handleAddNewItemToEdit = () => {
-    if (editingDistribution && editingItemData.itemName && editingItemData.unit) {
+    if (
+      editingDistribution &&
+      editingItemData.itemName &&
+      editingItemData.unit
+    ) {
       setEditingDistribution({
         ...editingDistribution,
-        items: [...editingDistribution.items, {
-          id: Date.now().toString(), // Temporary ID for new items
-          itemName: editingItemData.itemName,
-          quantity: editingItemData.quantity,
-          unit: editingItemData.unit,
-          itemId: editingItemData.itemId || undefined,
-        }]
-      })
-      
+        items: [
+          ...editingDistribution.items,
+          {
+            id: Date.now().toString(), // Temporary ID for new items
+            itemName: editingItemData.itemName,
+            quantity: editingItemData.quantity,
+            unit: editingItemData.unit,
+            itemId: editingItemData.itemId || undefined,
+          },
+        ],
+      });
+
       setEditingItemData({
         itemName: "",
         quantity: 1,
         unit: "",
         itemId: "",
-      })
+      });
     }
-  }
+  };
 
   const handleSearch = () => {
-    setCurrentPage(1)
-    fetchDistributions()
-  }
+    setCurrentPage(1);
+    fetchDistributions();
+  };
 
   const resetFilters = () => {
-    setSearchTerm("")
-    setDepartmentFilter("all")
-    setDateRange({ start: "", end: "" })
-    setCurrentPage(1)
-  }
+    setSearchTerm("");
+    setDepartmentFilter("all");
+    setDateRange({ start: "", end: "" });
+    setCurrentPage(1);
+  };
 
-  const departments = [...new Set(distributions.map(d => d.department))].filter(Boolean)
+  const departments = [
+    ...new Set(distributions.map((d) => d.department)),
+  ].filter(Boolean);
 
   if (status === "loading" || loading) {
     return (
@@ -544,7 +576,7 @@ export default function DistributionPage() {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   return (
@@ -552,8 +584,12 @@ export default function DistributionPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Distribusi Barang</h1>
-            <p className="text-muted-foreground">Kelola distribusi barang inventaris</p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Distribusi Barang
+            </h1>
+            <p className="text-muted-foreground">
+              Kelola distribusi barang inventaris
+            </p>
           </div>
           <AddDistributionDialog
             isOpen={isAddDialogOpen}
@@ -572,35 +608,7 @@ export default function DistributionPage() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Distribusi</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{distributionStats?.totalDistributions || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Distribusi Bulan Ini</CardTitle>
-              <Calendar className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{distributionStats?.recentDistributions || 0}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Barang Terdistribusi</CardTitle>
-              <Package className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{distributionStats?.totalQuantityDistributed || 0}</div>
-            </CardContent>
-          </Card>
-        </div>
+        <DistributionStatsCards stats={distributionStats} />
 
         {/* Filters */}
         <DistributionFilter
@@ -619,7 +627,9 @@ export default function DistributionPage() {
         <Card>
           <CardHeader>
             <CardTitle>Daftar Distribusi</CardTitle>
-            <CardDescription>Kelola semua catatan distribusi barang</CardDescription>
+            <CardDescription>
+              Kelola semua catatan distribusi barang
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <DistributionsTable
@@ -660,7 +670,9 @@ export default function DistributionPage() {
         {/* Edit Dialog */}
         <EditDistributionDialog
           open={!!editingDistribution}
-          setOpen={(open) => setEditingDistribution(open ? editingDistribution : null)}
+          setOpen={(open) =>
+            setEditingDistribution(open ? editingDistribution : null)
+          }
           editingDistribution={editingDistribution}
           setEditingDistribution={setEditingDistribution}
           editingItemIndex={editingItemIndex}
@@ -678,5 +690,5 @@ export default function DistributionPage() {
         />
       </div>
     </DashboardLayout>
-  )
+  );
 }
