@@ -110,18 +110,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createReceptionSchema.parse(body);
 
-    // Check if item exists in inventory (if itemId provided)
-    if (validatedData.itemId) {
-      const existingItem = await prisma.inventoryItem.findUnique({
-        where: { id: validatedData.itemId },
-      });
+    // itemId harus ada untuk proses penerimaan barang
+    if (!validatedData.itemId) {
+      return NextResponse.json(
+        { error: 'Barang harus sudah terdaftar di inventory sebelum penerimaan.' },
+        { status: 400 }
+      );
+    }
 
-      if (!existingItem) {
-        return NextResponse.json(
-          { error: 'Inventory item not found' },
-          { status: 404 }
-        );
-      }
+    // Check if item exists in inventory
+    const existingItem = await prisma.inventoryItem.findUnique({
+      where: { id: validatedData.itemId },
+    });
+    if (!existingItem) {
+      return NextResponse.json(
+        { error: 'Inventory item not found' },
+        { status: 404 }
+      );
     }
 
     const reception = await prisma.reception.create({
