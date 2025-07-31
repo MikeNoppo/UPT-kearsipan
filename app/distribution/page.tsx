@@ -7,7 +7,8 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DistributionFilter } from "@/components/distribution/distribution-filter"
+import { DistributionsTable } from "@/components/distribution/distributions-table"
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import { AddDistributionDialog } from "@/components/distribution/add-distribution-dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { 
@@ -27,10 +27,8 @@ import {
   Trash2, 
   Edit, 
   Loader2, 
-  Search, 
   FileText, 
   Package,
-  Filter,
   Calendar
 } from "lucide-react"
 
@@ -556,178 +554,20 @@ export default function DistributionPage() {
             <h1 className="text-3xl font-bold tracking-tight">Distribusi Barang</h1>
             <p className="text-muted-foreground">Kelola distribusi barang inventaris</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Tambah Distribusi
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Tambah Distribusi Baru</DialogTitle>
-                <DialogDescription>Buat catatan distribusi barang baru</DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-6 py-4">
-                {/* Basic Distribution Info */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="distributionDate">Tanggal Distribusi *</Label>
-                    <Input
-                      id="distributionDate"
-                      type="date"
-                      value={newDistribution.distributionDate}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, distributionDate: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="staffName">Nama Staff Penerima *</Label>
-                    <Input
-                      id="staffName"
-                      value={newDistribution.staffName}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, staffName: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="department">Departemen *</Label>
-                    <Input
-                      id="department"
-                      value={newDistribution.department}
-                      onChange={(e) => setNewDistribution({ ...newDistribution, department: e.target.value })}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="purpose">Tujuan Penggunaan *</Label>
-                  <Textarea
-                    id="purpose"
-                    value={newDistribution.purpose}
-                    onChange={(e) => setNewDistribution({ ...newDistribution, purpose: e.target.value })}
-                    disabled={isSubmitting}
-                    placeholder="Describe the purpose of this distribution"
-                  />
-                </div>
-
-                {/* Add Items Section */}
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold mb-4">Tambah Barang</h3>
-                  
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label>Pilih dari Inventaris (Opsional)</Label>
-                      <Select
-                        value={currentItem.itemId}
-                        onValueChange={handleItemSelection}
-                        disabled={isSubmitting}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih barang dari inventaris..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {inventoryItems.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name} - {item.category} (Stok: {item.stock} {item.unit})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="currentItemName">Nama Barang *</Label>
-                        <Input
-                          id="currentItemName"
-                          value={currentItem.itemName}
-                          onChange={(e) => setCurrentItem({ ...currentItem, itemName: e.target.value })}
-                          disabled={isSubmitting}
-                          placeholder="Nama barang"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="currentUnit">Satuan *</Label>
-                        <Input
-                          id="currentUnit"
-                          value={currentItem.unit}
-                          onChange={(e) => setCurrentItem({ ...currentItem, unit: e.target.value })}
-                          disabled={isSubmitting}
-                          placeholder="pcs, box, dll"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="currentQuantity">Jumlah *</Label>
-                        <Input
-                          id="currentQuantity"
-                          type="number"
-                          min="1"
-                          value={currentItem.quantity}
-                          onChange={(e) => setCurrentItem({ ...currentItem, quantity: parseInt(e.target.value) || 1 })}
-                          disabled={isSubmitting}
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      onClick={handleAddItem}
-                      disabled={isSubmitting}
-                      className="w-fit"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Tambah Barang
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Items List */}
-                {newDistribution.items.length > 0 && (
-                  <div className="border-t pt-4">
-                    <h3 className="text-lg font-semibold mb-4">Daftar Barang ({newDistribution.items.length})</h3>
-                    <div className="space-y-2">
-                      {newDistribution.items.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <span className="font-medium">{item.itemName}</span>
-                            <span className="text-muted-foreground ml-2">
-                              {item.quantity} {item.unit}
-                            </span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRemoveItem(index)}
-                            disabled={isSubmitting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddDistribution} disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Tambah Distribusi"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <AddDistributionDialog
+            isOpen={isAddDialogOpen}
+            setIsOpen={setIsAddDialogOpen}
+            newDistribution={newDistribution}
+            setNewDistribution={setNewDistribution}
+            currentItem={currentItem}
+            setCurrentItem={setCurrentItem}
+            inventoryItems={inventoryItems}
+            handleItemSelection={handleItemSelection}
+            handleAddItem={handleAddItem}
+            handleRemoveItem={handleRemoveItem}
+            handleAddDistribution={handleAddDistribution}
+            isSubmitting={isSubmitting}
+          />
         </div>
 
         {/* Statistics Cards */}
@@ -762,64 +602,17 @@ export default function DistributionPage() {
         </div>
 
         {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Filter Distribusi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="space-y-2">
-                <Label>Pencarian</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Cari nomor nota, barang, staff..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Button variant="outline" size="icon" onClick={handleSearch}>
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Departemen</Label>
-                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Semua departemen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua departemen</SelectItem>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Tanggal Mulai</Label>
-                <Input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tanggal Selesai</Label>
-                <Input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={resetFilters}>
-                <Filter className="mr-2 h-4 w-4" />
-                Reset Filter
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <DistributionFilter
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          departmentFilter={departmentFilter}
+          setDepartmentFilter={setDepartmentFilter}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          departments={departments}
+          handleSearch={handleSearch}
+          resetFilters={resetFilters}
+        />
 
         {/* Distributions Table */}
         <Card>
@@ -828,64 +621,12 @@ export default function DistributionPage() {
             <CardDescription>Kelola semua catatan distribusi barang</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nomor Nota</TableHead>
-                  <TableHead>Barang</TableHead>
-                  <TableHead>Staff Penerima</TableHead>
-                  <TableHead>Departemen</TableHead>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Didistribusi Oleh</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {distributions.map((distribution) => (
-                  <TableRow key={distribution.id}>
-                    <TableCell className="font-medium">{distribution.noteNumber}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {distribution.items.map((item, index) => (
-                          <div key={index} className="text-sm">
-                            {item.itemName} ({item.quantity} {item.unit})
-                          </div>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>{distribution.staffName}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{distribution.department}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(distribution.distributionDate).toLocaleDateString("id-ID")}
-                    </TableCell>
-                    <TableCell>{distribution.distributedBy.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setEditingDistribution({ ...distribution })}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {session?.user.role === "ADMINISTRATOR" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteDistribution(distribution.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
+            <DistributionsTable
+              distributions={distributions}
+              session={session}
+              setEditingDistribution={setEditingDistribution}
+              handleDeleteDistribution={handleDeleteDistribution}
+            />
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-2 py-4">
