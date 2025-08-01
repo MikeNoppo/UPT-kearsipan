@@ -11,8 +11,6 @@ interface DistributionFilterProps {
   setSearchTerm: (v: string) => void
   departmentFilter: string
   setDepartmentFilter: (v: string) => void
-  dateRange: { start: string; end: string }
-  setDateRange: (v: { start: string; end: string }) => void
   departments: string[]
   handleSearch: () => void
   resetFilters: () => void
@@ -23,19 +21,21 @@ export function DistributionFilter({
   setSearchTerm,
   departmentFilter,
   setDepartmentFilter,
-  dateRange,
-  setDateRange,
   departments,
   handleSearch,
   resetFilters,
 }: DistributionFilterProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-lg">Filter Distribusi</CardTitle>
+        <Button variant="outline" onClick={resetFilters}>
+          <Filter className="mr-2 h-4 w-4" />
+          Reset Filter
+        </Button>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Pencarian</Label>
             <div className="flex gap-2">
@@ -63,28 +63,6 @@ export function DistributionFilter({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Tanggal Mulai</Label>
-            <Input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Tanggal Selesai</Label>
-            <Input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <Button variant="outline" onClick={resetFilters}>
-            <Filter className="mr-2 h-4 w-4" />
-            Reset Filter
-          </Button>
         </div>
       </CardContent>
     </Card>

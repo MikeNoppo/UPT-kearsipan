@@ -118,7 +118,6 @@ export default function DistributionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
@@ -164,8 +163,6 @@ export default function DistributionPage() {
         ...(searchTerm && { search: searchTerm }),
         ...(departmentFilter &&
           departmentFilter !== "all" && { department: departmentFilter }),
-        ...(dateRange.start && { startDate: dateRange.start }),
-        ...(dateRange.end && { endDate: dateRange.end }),
       });
 
       const response = await fetch(`/api/distribution?${params}`);
@@ -184,7 +181,7 @@ export default function DistributionPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, departmentFilter, dateRange, toast]);
+  }, [currentPage, searchTerm, departmentFilter, toast]);
 
   // Mengambil statistik distribusi
   const fetchDistributionStats = useCallback(async () => {
@@ -561,7 +558,6 @@ export default function DistributionPage() {
   const resetFilters = () => {
     setSearchTerm("");
     setDepartmentFilter("all");
-    setDateRange({ start: "", end: "" });
     setCurrentPage(1);
   };
 
@@ -616,8 +612,6 @@ export default function DistributionPage() {
           setSearchTerm={setSearchTerm}
           departmentFilter={departmentFilter}
           setDepartmentFilter={setDepartmentFilter}
-          dateRange={dateRange}
-          setDateRange={setDateRange}
           departments={departments}
           handleSearch={handleSearch}
           resetFilters={resetFilters}
@@ -627,9 +621,6 @@ export default function DistributionPage() {
         <Card>
           <CardHeader>
             <CardTitle>Daftar Distribusi</CardTitle>
-            <CardDescription>
-              Kelola semua catatan distribusi barang
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <DistributionsTable
