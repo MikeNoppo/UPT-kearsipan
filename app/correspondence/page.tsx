@@ -33,23 +33,17 @@ import type { Letter, LetterStats, CreateLetterData, FileUploadResponse } from "
  * 
  * Fungsi utama:
  * - Mengelola surat masuk dan surat keluar UPT
- * - Tracking nomor surat, tanggal, dan status surat
- * - Mencatat pengirim/penerima dan subjek surat
- * - Monitoring proses surat dari masuk hingga diarsipkan
+ * - Tracking nomor surat, tanggal, dan subjek surat
+ * - Mencatat pengirim/penerima surat
+ * - Monitoring dan arsip dokumen surat
  * 
  * Jenis surat yang dikelola:
  * - INCOMING: Surat masuk dari pihak eksternal
  * - OUTGOING: Surat keluar yang diterbitkan UPT
  * 
- * Status surat yang ditracking:
- * - NEEDS_REVIEW: Surat perlu direview
- * - UNDER_REVIEW: Surat sedang dalam proses review
- * - NEEDS_DOCUMENT: Surat memerlukan dokumen pendukung
- * - ARCHIVED: Surat sudah diarsipkan
- * 
  * Fitur yang tersedia:
  * - CRUD operations untuk data surat
- * - Filter berdasarkan jenis dan status surat
+ * - Filter berdasarkan jenis surat
  * - Search berdasarkan nomor, subjek, atau pengirim
  * - Statistik surat masuk/keluar per periode
  * - Pagination untuk handling volume surat besar
@@ -60,7 +54,6 @@ import type { Letter, LetterStats, CreateLetterData, FileUploadResponse } from "
  * - Subjek/perihal surat
  * - Pengirim dan penerima
  * - Deskripsi singkat isi surat
- * - Status processing surat
  */
 
 export default function CorrespondencePage() {
@@ -73,7 +66,6 @@ export default function CorrespondencePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   
@@ -103,7 +95,6 @@ export default function CorrespondencePage() {
         limit: "10",
         ...(searchTerm && { search: searchTerm }),
         ...(typeFilter && typeFilter !== "all" && { type: typeFilter }),
-        ...(statusFilter && statusFilter !== "all" && { status: statusFilter }),
       })
 
       const response = await fetch(`/api/letters?${params}`)
@@ -122,7 +113,7 @@ export default function CorrespondencePage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchTerm, typeFilter, statusFilter, toast])
+  }, [currentPage, searchTerm, typeFilter, toast])
 
   // Mengambil statistik surat (jumlah masuk/keluar per periode)
   const fetchLetterStats = useCallback(async () => {
@@ -237,7 +228,6 @@ export default function CorrespondencePage() {
           from: editingLetter.from,
           to: editingLetter.to,
           description: editingLetter.description,
-          status: editingLetter.status,
         }),
       })
 
@@ -386,19 +376,6 @@ export default function CorrespondencePage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "RECEIVED":
-        return <Badge variant="secondary">Diterima</Badge>
-      case "SENT":
-        return <Badge variant="default">Terkirim</Badge>
-      case "DRAFT":
-        return <Badge variant="outline">Draft</Badge>
-      default:
-        return <Badge variant="outline">Unknown</Badge>
-    }
-  }
-
   const handleSearch = () => {
     setCurrentPage(1)
     fetchLetters()
@@ -407,7 +384,6 @@ export default function CorrespondencePage() {
   const resetFilters = () => {
     setSearchTerm("")
     setTypeFilter("all")
-    setStatusFilter("all")
     setCurrentPage(1)
   }
 
@@ -658,7 +634,7 @@ export default function CorrespondencePage() {
             <CardTitle className="text-lg">Filter Surat</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Pencarian</Label>
                 <div className="flex gap-2">
@@ -682,20 +658,6 @@ export default function CorrespondencePage() {
                     <SelectItem value="all">Semua jenis</SelectItem>
                     <SelectItem value="INCOMING">Surat Masuk</SelectItem>
                     <SelectItem value="OUTGOING">Surat Keluar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Semua status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua status</SelectItem>
-                    <SelectItem value="RECEIVED">Diterima</SelectItem>
-                    <SelectItem value="SENT">Terkirim</SelectItem>
-                    <SelectItem value="DRAFT">Draft</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -894,23 +856,6 @@ export default function CorrespondencePage() {
                     />
                   </div>
                 )}
-                <div className="grid gap-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={editingLetter.status}
-                    onValueChange={(value: "RECEIVED" | "SENT" | "DRAFT") => setEditingLetter({ ...editingLetter, status: value })}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="RECEIVED">Diterima</SelectItem>
-                      <SelectItem value="SENT">Terkirim</SelectItem>
-                      <SelectItem value="DRAFT">Draft</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-description">Keterangan</Label>
                   <Textarea

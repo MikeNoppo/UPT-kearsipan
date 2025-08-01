@@ -162,7 +162,6 @@ model Letter {
   from            String?
   to              String?
   description     String?
-  status          LetterStatus
   hasDocument     Boolean  @default(false)
   documentPath    String?
   documentName    String?  // Nama file asli yang diupload user
@@ -232,12 +231,6 @@ enum ReceptionStatus {
 enum LetterType {
   INCOMING
   OUTGOING
-}
-
-enum LetterStatus {
-  RECEIVED
-  SENT
-  DRAFT
 }
 
 enum ArchiveStatus {

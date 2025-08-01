@@ -7,7 +7,6 @@ export interface Letter {
   from?: string
   to?: string
   description?: string
-  status: "RECEIVED" | "SENT" | "DRAFT"
   hasDocument: boolean
   documentPath?: string
   documentName?: string    // Nama file asli
@@ -29,11 +28,6 @@ export interface LetterStats {
   outgoingLetters: number
   lettersWithDocuments: number
   recentLetters: number
-  statusStats: {
-    received?: number
-    sent?: number
-    draft?: number
-  }
   departmentStats: Array<{
     department: string
     count: number
@@ -54,7 +48,6 @@ export interface CreateLetterData {
   from?: string
   to?: string
   description?: string
-  status?: "RECEIVED" | "SENT" | "DRAFT"
   hasDocument?: boolean
   documentPath?: string
   documentName?: string
@@ -70,7 +63,6 @@ export interface UpdateLetterData {
   from?: string
   to?: string
   description?: string
-  status?: "RECEIVED" | "SENT" | "DRAFT"
   hasDocument?: boolean
   documentPath?: string
   documentName?: string
@@ -90,7 +82,6 @@ export interface FileUploadResponse {
 export interface LetterFilters {
   search?: string
   type?: string
-  status?: string
   startDate?: string
   endDate?: string
   page?: number

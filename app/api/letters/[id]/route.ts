@@ -12,7 +12,6 @@ const updateLetterSchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   description: z.string().optional(),
-  status: z.enum(["RECEIVED", "SENT", "DRAFT"]).optional(),
   hasDocument: z.boolean().optional(),
   documentPath: z.string().optional(),
   documentName: z.string().optional(),
@@ -121,7 +120,6 @@ export async function PATCH(
     if (data.from !== undefined) updateData.from = data.from
     if (data.to !== undefined) updateData.to = data.to
     if (data.description !== undefined) updateData.description = data.description
-    if (data.status) updateData.status = data.status
     if (data.hasDocument !== undefined) updateData.hasDocument = data.hasDocument
     if (data.documentPath !== undefined) updateData.documentPath = data.documentPath
     if (data.documentName !== undefined) updateData.documentName = data.documentName

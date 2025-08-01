@@ -40,7 +40,6 @@ export async function GET(request: NextRequest) {
       outgoingLetters,
       lettersWithDocuments,
       recentLetters,
-      lettersByStatus,
       lettersByMonth,
     ] = await Promise.all([
       // Total letters
@@ -66,14 +65,6 @@ export async function GET(request: NextRequest) {
         where: timeFilter,
       }),
 
-      // Letters by status
-      prisma.letter.groupBy({
-        by: ["status"],
-        _count: {
-          id: true,
-        },
-      }),
-
       // Letters by month (for chart data)
       prisma.$queryRaw`
         SELECT 
@@ -87,13 +78,6 @@ export async function GET(request: NextRequest) {
         LIMIT 12
       `,
     ])
-
-    // Algoritma reduce untuk mengkonversi array ke object dengan counting
-    // Formula agregasi: menghitung jumlah surat per status menggunakan akumulator
-    const statusStats = lettersByStatus.reduce((acc, item) => {
-      acc[item.status.toLowerCase()] = item._count.id
-      return acc
-    }, {} as Record<string, number>)
 
     // Get department statistics (from/to fields)
     const departmentStats = await prisma.$queryRaw`
@@ -113,7 +97,6 @@ export async function GET(request: NextRequest) {
       outgoingLetters,
       lettersWithDocuments,
       recentLetters,
-      statusStats,
       departmentStats,
       monthlyData: lettersByMonth,
       period,

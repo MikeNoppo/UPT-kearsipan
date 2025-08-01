@@ -13,7 +13,6 @@ const createLetterSchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   description: z.string().optional(),
-  status: z.enum(["RECEIVED", "SENT", "DRAFT"]).default("DRAFT"),
   hasDocument: z.boolean().default(false),
   documentPath: z.string().optional(),
   documentName: z.string().optional(),
@@ -36,7 +35,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10")
     const search = searchParams.get("search") || ""
     const type = searchParams.get("type") || ""
-    const status = searchParams.get("status") || ""
     const startDate = searchParams.get("startDate") || ""
     const endDate = searchParams.get("endDate") || ""
 
@@ -60,11 +58,6 @@ export async function GET(request: NextRequest) {
     // Filter berdasarkan jenis surat (INCOMING/OUTGOING)
     if (type) {
       where.type = type
-    }
-
-    // Filter berdasarkan status surat
-    if (status) {
-      where.status = status
     }
 
     // Filter berdasarkan rentang tanggal dengan conditional logic
@@ -162,12 +155,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Set default status based on type
-    let defaultStatus = data.status
-    if (!data.status || data.status === "DRAFT") {
-      defaultStatus = data.type === "INCOMING" ? "RECEIVED" : "SENT"
-    }
-
     // Create letter
     const letter = await prisma.letter.create({
       data: {
@@ -178,7 +165,6 @@ export async function POST(request: NextRequest) {
         from: data.from,
         to: data.to,
         description: data.description,
-        status: defaultStatus,
         hasDocument: data.hasDocument || false,
         documentPath: data.documentPath,
         documentName: data.documentName,
