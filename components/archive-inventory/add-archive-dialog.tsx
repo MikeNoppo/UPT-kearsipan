@@ -33,14 +33,14 @@ export function AddArchiveDialog({
 }: AddArchiveDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Tambah Arsip Baru</DialogTitle>
           <DialogDescription>
             Daftarkan dokumen baru ke dalam inventaris arsip. Status akan ditentukan otomatis berdasarkan masa retensi.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="code">Kode Arsip *</Label>
@@ -135,7 +135,7 @@ export function AddArchiveDialog({
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4 border-t">
           <Button onClick={onSubmit} disabled={isSubmitting}>
             {isSubmitting ? (
               <>

@@ -36,18 +36,19 @@ export function EditArchiveDialog({
 
   return (
     <Dialog open={!!archive} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Arsip</DialogTitle>
           <DialogDescription>
             Ubah informasi dokumen arsip. Status: <strong>{archiveStatus.label}</strong>
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-code">Kode Arsip</Label>
-              <Input
+        <div className="flex-1 overflow-y-auto px-1">
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-code">Kode Arsip</Label>
+                <Input
                 id="edit-code"
                 value={archive.code}
                 onChange={(e) => onArchiveChange({ ...archive, code: e.target.value })}
@@ -151,7 +152,8 @@ export function EditArchiveDialog({
             />
           </div>
         </div>
-        <DialogFooter>
+        </div>
+        <DialogFooter className="flex-shrink-0 border-t pt-4">
           <Button onClick={onSubmit} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
