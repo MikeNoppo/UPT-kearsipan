@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Edit, Trash2, AlertTriangle } from "lucide-react"
+import { Edit, Trash2, AlertTriangle, Clock, CheckCircle } from "lucide-react"
 import type { Archive } from "@/types/archive"
+import { getArchiveStatus, getDaysTillExpiry, isArchiveNearExpiry } from "@/lib/archive-utils"
 
 interface ArchivesTableProps {
   archives: Archive[]
@@ -19,35 +20,46 @@ interface ArchivesTableProps {
 export function ArchivesTable({
   archives,
   currentPage,
-  totalPages,
+  totalPages, 
   onEdit,
   onDelete,
   onPageChange,
   canDelete,
 }: ArchivesTableProps) {
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PERMANENT":
-        return <Badge variant="default">Permanen</Badge>
-      case "SCHEDULED_DESTRUCTION":
-        return (
-          <Badge variant="destructive">
-            <AlertTriangle className="mr-1 h-3 w-3" />
-            Dijadwalkan Musnah
-          </Badge>
-        )
-      case "UNDER_REVIEW":
-        return <Badge variant="secondary">Dalam Review</Badge>
-      default:
-        return <Badge variant="outline">Unknown</Badge>
+  const getStatusBadge = (archive: Archive) => {
+    const { label, variant } = getArchiveStatus(archive)
+    const daysTillExpiry = getDaysTillExpiry(archive)
+    const nearExpiry = isArchiveNearExpiry(archive)
+    
+    // Tampilkan warning jika mendekati kadaluarsa
+    if (nearExpiry && variant === 'default') {
+      return (
+        <Badge variant="outline" className="border-orange-500 text-orange-700">
+          <Clock className="mr-1 h-3 w-3" />
+          {label} ({daysTillExpiry} hari)
+        </Badge>
+      )
     }
+
+    // Icon berdasarkan status
+    let icon = null
+    if (variant === 'destructive') icon = <AlertTriangle className="mr-1 h-3 w-3" />
+    else if (variant === 'default') icon = <CheckCircle className="mr-1 h-3 w-3" />
+    else if (variant === 'secondary') icon = <Clock className="mr-1 h-3 w-3" />
+
+    return (
+      <Badge variant={variant}>
+        {icon}
+        {label}
+      </Badge>
+    )
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Daftar Arsip</CardTitle>
-        <CardDescription>Kelola semua dokumen arsip dalam inventaris</CardDescription>
+        <CardDescription>Kelola semua dokumen arsip dengan sistem retensi otomatis</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -58,7 +70,7 @@ export function ArchivesTable({
               <TableHead>Kategori</TableHead>
               <TableHead>Tanggal Pembuatan</TableHead>
               <TableHead>Lokasi</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Status Retensi</TableHead>
               <TableHead>Masa Retensi</TableHead>
               <TableHead>Diarsipkan Oleh</TableHead>
               <TableHead>Aksi</TableHead>
@@ -76,7 +88,7 @@ export function ArchivesTable({
                   {new Date(archive.creationDate).toLocaleDateString("id-ID")}
                 </TableCell>
                 <TableCell>{archive.location}</TableCell>
-                <TableCell>{getStatusBadge(archive.status)}</TableCell>
+                <TableCell>{getStatusBadge(archive)}</TableCell>
                 <TableCell>{archive.retentionPeriod} tahun</TableCell>
                 <TableCell>{archive.archivedBy.name}</TableCell>
                 <TableCell>

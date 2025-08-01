@@ -12,22 +12,23 @@ import type { Archive, ArchiveStats } from "@/types/archive"
  * - Mengelola inventarisasi dokumen arsip UPT
  * - Tracking masa retensi dokumen dan jadwal pemusnahan
  * - Kategorisasi dokumen berdasarkan jenis dan nilai guna
- * - Monitoring status arsip dari review hingga pemusnahan
+ * - Monitoring status arsip berdasarkan retention period
  * 
- * Status arsip yang dikelola:
- * - UNDER_REVIEW: Arsip sedang dalam proses review untuk penentuan nilai guna
- * - PERMANENT: Arsip dengan nilai guna permanen, disimpan selamanya
- * - SCHEDULED_DESTRUCTION: Arsip dijadwalkan untuk dimusnahkan
+ * Status arsip yang dikelola (computed from retention logic):
+ * - Active: Arsip masih dalam masa retensi aktif
+ * - Near Expiry: Arsip mendekati batas masa retensi (30 hari)
+ * - Expired: Arsip telah melewati masa retensi
+ * - Destroyed: Arsip telah dimusnahkan secara fisik
  * 
  * Fitur yang tersedia:
  * - CRUD operations untuk data arsip
  * - Sistem kode arsip untuk klasifikasi
- * - Penentuan masa retensi otomatis
- * - Kalkulasi jadwal review dan pemusnahan
- * - Filter berdasarkan kategori dan status
+ * - Penentuan masa retensi berdasarkan kategori dokumen
+ * - Kalkulasi otomatis status berdasarkan tanggal dan retention period
+ * - Filter berdasarkan kategori dan retention status
  * - Search berdasarkan kode atau judul arsip
- * - Statistik arsip per kategori dan status
- * - Alert untuk arsip yang mendekati masa review
+ * - Statistik arsip per kategori dan retention status
+ * - Alert untuk arsip yang mendekati masa expired
  * 
  * Arsitektur:
  * - SSR untuk performance dan SEO

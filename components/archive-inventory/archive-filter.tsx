@@ -9,11 +9,11 @@ import { Search, Filter } from "lucide-react"
 interface ArchiveFilterProps {
   searchTerm: string
   categoryFilter: string
-  statusFilter: string
+  retentionFilter: string  // Filter berdasarkan status retensi
   categories: string[]
   onSearchChange: (value: string) => void
   onCategoryChange: (value: string) => void
-  onStatusChange: (value: string) => void
+  onRetentionChange: (value: string) => void
   onSearch: () => void
   onReset: () => void
 }
@@ -21,11 +21,11 @@ interface ArchiveFilterProps {
 export function ArchiveFilter({
   searchTerm,
   categoryFilter,
-  statusFilter,
+  retentionFilter,
   categories,
   onSearchChange,
   onCategoryChange,
-  onStatusChange,
+  onRetentionChange,
   onSearch,
   onReset,
 }: ArchiveFilterProps) {
@@ -64,16 +64,17 @@ export function ArchiveFilter({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={statusFilter} onValueChange={onStatusChange}>
+            <Label>Status Retensi</Label>
+            <Select value={retentionFilter} onValueChange={onRetentionChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Semua status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua status</SelectItem>
-                <SelectItem value="UNDER_REVIEW">Dalam Review</SelectItem>
-                <SelectItem value="PERMANENT">Permanen</SelectItem>
-                <SelectItem value="SCHEDULED_DESTRUCTION">Dijadwalkan Musnah</SelectItem>
+                <SelectItem value="active">Aktif (dalam masa retensi)</SelectItem>
+                <SelectItem value="expired">Kadaluarsa (lewat masa retensi)</SelectItem>
+                <SelectItem value="near_expiry">Mendekati kadaluarsa (30 hari)</SelectItem>
+                <SelectItem value="destroyed">Sudah dimusnahkan</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -184,12 +184,11 @@ model Archive {
   title               String
   category            String
   creationDate        DateTime
-  retentionPeriod     Int
-  status              ArchiveStatus
+  retentionPeriod     Int      // Masa retensi dalam tahun
   location            String
   description         String?
   notes               String?
-  destructionDate     DateTime?
+  destructionDate     DateTime? // Tanggal aktual pemusnahan (jika sudah dimusnahkan)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -231,10 +230,4 @@ enum ReceptionStatus {
 enum LetterType {
   INCOMING
   OUTGOING
-}
-
-enum ArchiveStatus {
-  UNDER_REVIEW
-  PERMANENT
-  SCHEDULED_DESTRUCTION
 }

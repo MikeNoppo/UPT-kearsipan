@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import type { CreateArchiveData } from "@/types/archive"
 
@@ -37,7 +36,9 @@ export function AddArchiveDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Tambah Arsip Baru</DialogTitle>
-          <DialogDescription>Daftarkan dokumen baru ke dalam inventaris arsip</DialogDescription>
+          <DialogDescription>
+            Daftarkan dokumen baru ke dalam inventaris arsip. Status akan ditentukan otomatis berdasarkan masa retensi.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
@@ -96,37 +97,20 @@ export function AddArchiveDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="retentionPeriod">Masa Retensi (Tahun) *</Label>
-              <Input
-                id="retentionPeriod"
-                type="number"
-                min="1"
-                value={archive.retentionPeriod}
-                onChange={(e) => onArchiveChange({ ...archive, retentionPeriod: parseInt(e.target.value) || 1 })}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select
-                value={archive.status}
-                onValueChange={(value: "UNDER_REVIEW" | "PERMANENT" | "SCHEDULED_DESTRUCTION") => 
-                  onArchiveChange({ ...archive, status: value })
-                }
-                disabled={isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNDER_REVIEW">Dalam Review</SelectItem>
-                  <SelectItem value="PERMANENT">Permanen</SelectItem>
-                  <SelectItem value="SCHEDULED_DESTRUCTION">Dijadwalkan Musnah</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="retentionPeriod">Masa Retensi (Tahun) *</Label>
+            <Input
+              id="retentionPeriod"
+              type="number"
+              min="1"
+              max="100"
+              value={archive.retentionPeriod}
+              onChange={(e) => onArchiveChange({ ...archive, retentionPeriod: parseInt(e.target.value) || 1 })}
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Arsip akan otomatis dianggap kadaluarsa setelah masa retensi berakhir
+            </p>
           </div>
 
           <div className="grid gap-2">

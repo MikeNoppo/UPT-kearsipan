@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Plus } from "lucide-react"
 import type { Archive, ArchiveStats, CreateArchiveData } from "@/types/archive"
+import { enrichArchiveWithStatus } from "@/lib/archive-utils"
 import { ArchiveStatsCards } from "./archive-stats-cards"
 import { ArchiveFilter } from "./archive-filter"
 import { ArchivesTable } from "./archives-table"
@@ -25,7 +26,7 @@ export function ArchiveInventoryClient({
   initialTotalPages,
 }: ArchiveInventoryClientProps) {
   const { data: session } = useSession()
-  const [archives, setArchives] = useState<Archive[]>(initialArchives)
+  const [archives, setArchives] = useState<Archive[]>(initialArchives.map(enrichArchiveWithStatus))
   const [archiveStats, setArchiveStats] = useState<ArchiveStats | null>(initialStats)
   const [loading, setLoading] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -33,7 +34,7 @@ export function ArchiveInventoryClient({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [retentionFilter, setRetentionFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(initialTotalPages)
   const { toast } = useToast()
@@ -45,7 +46,6 @@ export function ArchiveInventoryClient({
     category: "",
     creationDate: new Date().toISOString().split('T')[0],
     retentionPeriod: 5,
-    status: "UNDER_REVIEW",
     location: "",
     description: "",
     notes: "",
@@ -60,7 +60,7 @@ export function ArchiveInventoryClient({
         limit: "10",
         ...(searchTerm && { search: searchTerm }),
         ...(categoryFilter && categoryFilter !== "all" && { category: categoryFilter }),
-        ...(statusFilter && statusFilter !== "all" && { status: statusFilter }),
+        ...(retentionFilter && retentionFilter !== "all" && { retention: retentionFilter }),
       })
 
       const response = await fetch(`/api/archives?${params}`)
@@ -68,7 +68,8 @@ export function ArchiveInventoryClient({
         throw new Error("Failed to fetch archives")
       }
       const data = await response.json()
-      setArchives(data.archives)
+      const enrichedArchives = data.archives.map(enrichArchiveWithStatus)
+      setArchives(enrichedArchives)
       setTotalPages(data.pagination.pages)
     } catch (error) {
       toast({
@@ -79,7 +80,7 @@ export function ArchiveInventoryClient({
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchTerm, categoryFilter, statusFilter, toast])
+  }, [currentPage, searchTerm, categoryFilter, retentionFilter, toast])
 
   // Mengambil statistik arsip
   const fetchArchiveStats = async () => {
@@ -146,13 +147,13 @@ export function ArchiveInventoryClient({
         category: "",
         creationDate: new Date().toISOString().split('T')[0],
         retentionPeriod: 5,
-        status: "UNDER_REVIEW",
         location: "",
         description: "",
         notes: "",
       })
       setIsAddDialogOpen(false)
       await fetchArchiveStats()
+      await fetchArchives()
       
       toast({
         title: "Success",
@@ -185,7 +186,6 @@ export function ArchiveInventoryClient({
           category: editingArchive.category,
           creationDate: new Date(editingArchive.creationDate).toISOString(),
           retentionPeriod: editingArchive.retentionPeriod,
-          status: editingArchive.status,
           location: editingArchive.location,
           description: editingArchive.description,
           notes: editingArchive.notes,
@@ -199,11 +199,13 @@ export function ArchiveInventoryClient({
       }
 
       const updatedArchive = await response.json()
+      const enrichedArchive = enrichArchiveWithStatus(updatedArchive)
       setArchives(archives.map((archive) => 
-        archive.id === updatedArchive.id ? updatedArchive : archive
+        archive.id === updatedArchive.id ? enrichedArchive : archive
       ))
       setEditingArchive(null)
       await fetchArchiveStats()
+      await fetchArchives()
       
       toast({
         title: "Success",
@@ -237,6 +239,7 @@ export function ArchiveInventoryClient({
 
       setArchives(archives.filter((archive) => archive.id !== id))
       await fetchArchiveStats()
+      await fetchArchives()
       
       toast({
         title: "Success",
@@ -259,7 +262,7 @@ export function ArchiveInventoryClient({
   const resetFilters = () => {
     setSearchTerm("")
     setCategoryFilter("all")
-    setStatusFilter("all")
+    setRetentionFilter("all")
     setCurrentPage(1)
   }
 
@@ -289,11 +292,11 @@ export function ArchiveInventoryClient({
       <ArchiveFilter
         searchTerm={searchTerm}
         categoryFilter={categoryFilter}
-        statusFilter={statusFilter}
+        retentionFilter={retentionFilter}
         categories={categories}
         onSearchChange={setSearchTerm}
         onCategoryChange={setCategoryFilter}
-        onStatusChange={setStatusFilter}
+        onRetentionChange={setRetentionFilter}
         onSearch={handleSearch}
         onReset={resetFilters}
       />

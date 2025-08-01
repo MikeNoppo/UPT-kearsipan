@@ -11,9 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import type { Archive } from "@/types/archive"
+import { getArchiveStatus, isArchiveDestroyed } from "@/lib/archive-utils"
 
 interface EditArchiveDialogProps {
   archive: Archive | null
@@ -32,12 +32,16 @@ export function EditArchiveDialog({
 }: EditArchiveDialogProps) {
   if (!archive) return null
 
+  const archiveStatus = getArchiveStatus(archive)
+
   return (
     <Dialog open={!!archive} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Edit Arsip</DialogTitle>
-          <DialogDescription>Ubah informasi dokumen arsip</DialogDescription>
+          <DialogDescription>
+            Ubah informasi dokumen arsip. Status: <strong>{archiveStatus.label}</strong>
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
@@ -93,51 +97,39 @@ export function EditArchiveDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-retentionPeriod">Masa Retensi (Tahun)</Label>
-              <Input
-                id="edit-retentionPeriod"
-                type="number"
-                min="1"
-                value={archive.retentionPeriod}
-                onChange={(e) => onArchiveChange({ ...archive, retentionPeriod: parseInt(e.target.value) || 1 })}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={archive.status}
-                onValueChange={(value: "UNDER_REVIEW" | "PERMANENT" | "SCHEDULED_DESTRUCTION") => 
-                  onArchiveChange({ ...archive, status: value })
-                }
-                disabled={isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNDER_REVIEW">Dalam Review</SelectItem>
-                  <SelectItem value="PERMANENT">Permanen</SelectItem>
-                  <SelectItem value="SCHEDULED_DESTRUCTION">Dijadwalkan Musnah</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit-retentionPeriod">Masa Retensi (Tahun)</Label>
+            <Input
+              id="edit-retentionPeriod"
+              type="number"
+              min="1"
+              max="100"
+              value={archive.retentionPeriod}
+              onChange={(e) => onArchiveChange({ ...archive, retentionPeriod: parseInt(e.target.value) || 1 })}
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Mengubah masa retensi akan mempengaruhi tanggal kadaluarsa arsip
+            </p>
           </div>
 
-          {archive.status === "SCHEDULED_DESTRUCTION" && (
-            <div className="grid gap-2">
-              <Label htmlFor="edit-destructionDate">Tanggal Pemusnahan</Label>
-              <Input
-                id="edit-destructionDate"
-                type="date"
-                value={archive.destructionDate ? archive.destructionDate.split('T')[0] : ""}
-                onChange={(e) => onArchiveChange({ ...archive, destructionDate: e.target.value })}
-                disabled={isSubmitting}
-              />
-            </div>
-          )}
+          {/* Field untuk menandai arsip sudah dimusnahkan */}
+          <div className="grid gap-2">
+            <Label htmlFor="edit-destructionDate">Tanggal Pemusnahan</Label>
+            <Input
+              id="edit-destructionDate"
+              type="date"
+              value={archive.destructionDate ? archive.destructionDate.split('T')[0] : ""}
+              onChange={(e) => onArchiveChange({ ...archive, destructionDate: e.target.value })}
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              {archive.destructionDate 
+                ? "Arsip telah dimusnahkan pada tanggal ini" 
+                : "Kosongkan jika arsip belum dimusnahkan"
+              }
+            </p>
+          </div>
 
           <div className="grid gap-2">
             <Label htmlFor="edit-description">Deskripsi</Label>

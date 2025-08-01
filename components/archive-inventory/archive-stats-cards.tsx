@@ -1,11 +1,12 @@
 import React from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Archive as ArchiveIcon, Calendar, AlertTriangle } from "lucide-react"
+import { Archive as ArchiveIcon, Calendar, AlertTriangle, CheckCircle } from "lucide-react"
 
 interface ArchiveStats {
   totalArchives: number
-  permanentArchives: number
-  scheduledForDestruction: number
+  activeArchives: number
+  expiredArchives: number
+  destroyedArchives: number
   recentArchives: number
 }
 
@@ -27,20 +28,22 @@ export function ArchiveStatsCards({ stats }: ArchiveStatsCardsProps) {
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Arsip Permanen</CardTitle>
-          <Calendar className="h-4 w-4 text-green-500" />
+          <CardTitle className="text-sm font-medium">Arsip Aktif</CardTitle>
+          <CheckCircle className="h-4 w-4 text-green-500" />
         </CardHeader>
         <CardContent>
-          <div className="text-xl font-bold">{stats?.permanentArchives || 0}</div>
+          <div className="text-xl font-bold">{stats?.activeArchives || 0}</div>
+          <p className="text-xs text-muted-foreground">Masih dalam masa retensi</p>
         </CardContent>
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Dijadwalkan Musnah</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-red-500" />
+          <CardTitle className="text-sm font-medium">Arsip Kadaluarsa</CardTitle>
+          <AlertTriangle className="h-4 w-4 text-orange-500" />
         </CardHeader>
         <CardContent>
-          <div className="text-xl font-bold">{stats?.scheduledForDestruction || 0}</div>
+          <div className="text-xl font-bold">{stats?.expiredArchives || 0}</div>
+          <p className="text-xs text-muted-foreground">Lewat masa retensi</p>
         </CardContent>
       </Card>
       <Card>
@@ -50,6 +53,7 @@ export function ArchiveStatsCards({ stats }: ArchiveStatsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-xl font-bold">{stats?.recentArchives || 0}</div>
+          <p className="text-xs text-muted-foreground">Arsip baru ditambahkan</p>
         </CardContent>
       </Card>
     </div>
