@@ -724,7 +724,6 @@ export default function CorrespondencePage() {
                   <TableHead>Perihal</TableHead>
                   <TableHead>Jenis</TableHead>
                   <TableHead>Asal/Tujuan</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Dokumen</TableHead>
                   <TableHead>Dibuat Oleh</TableHead>
                   <TableHead>Aksi</TableHead>
@@ -738,7 +737,6 @@ export default function CorrespondencePage() {
                     <TableCell>{letter.subject}</TableCell>
                     <TableCell>{getTypeBadge(letter.type)}</TableCell>
                     <TableCell>{letter.from || letter.to || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(letter.status)}</TableCell>
                     <TableCell>
                       {letter.hasDocument ? (
                         <div className="flex items-center space-x-1">
