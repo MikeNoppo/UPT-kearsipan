@@ -92,7 +92,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
     }
   }
 
-  // Menyetujui atau menolak permintaan (untuk admin)
+  // Menyetujui atau menolak permintaan (untuk admin dan staff)
   const handleReviewRequest = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
       setReviewingRequestId(id)

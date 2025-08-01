@@ -14,7 +14,7 @@ const updatePurchaseRequestSchema = z.object({
   itemId: z.string().optional(),
 });
 
-// Validation schema for reviewing purchase request (admin only)
+// Validation schema for reviewing purchase request (admin and staff)
 const reviewPurchaseRequestSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED']),
   notes: z.string().optional(),
@@ -100,9 +100,10 @@ export async function PATCH(
 
     const body = await request.json();
     
-    // Check if this is a review action (admin only)
+    // Check if this is a review action (admin and staff can approve)
     if ('status' in body && (body.status === 'APPROVED' || body.status === 'REJECTED')) {
-      if (session.user.role !== 'ADMINISTRATOR') {
+      // Both ADMINISTRATOR and STAFF can approve/reject requests
+      if (session.user.role !== 'ADMINISTRATOR' && session.user.role !== 'STAFF') {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 

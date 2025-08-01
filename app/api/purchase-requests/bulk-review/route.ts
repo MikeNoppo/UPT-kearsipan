@@ -11,12 +11,12 @@ const bulkReviewSchema = z.object({
   notes: z.string().optional(),
 });
 
-// POST /api/purchase-requests/bulk-review - Bulk approve/reject requests (admin only)
+// POST /api/purchase-requests/bulk-review - Bulk approve/reject requests (admin and staff)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || session.user.role !== 'ADMINISTRATOR') {
+    if (!session || (session.user.role !== 'ADMINISTRATOR' && session.user.role !== 'STAFF')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
