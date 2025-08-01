@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get("period") || "month" // month, quarter, year
     
-    let dateFilter: any = {}
+    let dateFilter: Record<string, unknown> = {}
     const now = new Date()
 
     switch (period) {

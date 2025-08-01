@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause untuk filtering database
-    const where: any = {}
+    const where: Record<string, unknown> = {}
     
     // Filter pencarian teks multi-kolom menggunakan OR condition
     if (search) {

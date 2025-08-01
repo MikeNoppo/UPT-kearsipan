@@ -111,7 +111,7 @@ export async function PATCH(
     }
 
     // Prepare update data
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     
     if (data.number) updateData.number = data.number
     if (data.date) updateData.date = new Date(data.date)

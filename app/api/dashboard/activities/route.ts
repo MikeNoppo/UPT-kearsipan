@@ -158,7 +158,7 @@ export async function GET() {
     })
 
     // Sort by date and take top 3
-    inventoryActivities.sort((a, b) => {
+    inventoryActivities.sort(() => {
       // Note: We need to add timestamp to sort properly, for now just take first 3
       return 0
     })

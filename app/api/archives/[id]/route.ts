@@ -103,7 +103,7 @@ export async function PATCH(
     }
 
     // Prepare update data
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     
     if (data.code) updateData.code = data.code
     if (data.title) updateData.title = data.title

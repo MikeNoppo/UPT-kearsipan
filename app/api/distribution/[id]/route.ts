@@ -149,7 +149,7 @@ export async function PATCH(
     // Update distribution and items in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Prepare update data for distribution (excluding items)
-      const updateData: any = {}
+      const updateData: Record<string, unknown> = {}
       if (validatedData.noteNumber) updateData.noteNumber = validatedData.noteNumber
       if (validatedData.staffName) updateData.staffName = validatedData.staffName
       if (validatedData.department) updateData.department = validatedData.department
