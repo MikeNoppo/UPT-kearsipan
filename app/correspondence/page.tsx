@@ -630,8 +630,12 @@ export default function CorrespondencePage() {
 
         {/* Filters */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-lg">Filter Surat</CardTitle>
+            <Button variant="outline" onClick={resetFilters}>
+              <Filter className="mr-2 h-4 w-4" />
+              Reset Filter
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
@@ -662,12 +666,6 @@ export default function CorrespondencePage() {
                 </Select>
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={resetFilters}>
-                <Filter className="mr-2 h-4 w-4" />
-                Reset Filter
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -675,7 +673,6 @@ export default function CorrespondencePage() {
         <Card>
           <CardHeader>
             <CardTitle>Daftar Surat</CardTitle>
-            <CardDescription>Kelola semua catatan surat masuk dan keluar</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
