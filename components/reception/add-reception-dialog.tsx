@@ -40,7 +40,7 @@ interface NewReception {
 
 interface AddReceptionDialogProps {
   inventory: InventoryItem[]
-  onReceptionAdded: (reception: any) => void
+  onReceptionAdded: (reception: Record<string, unknown>) => void
 }
 
 const AddReceptionDialog = memo(function AddReceptionDialog({ inventory, onReceptionAdded }: AddReceptionDialogProps) {

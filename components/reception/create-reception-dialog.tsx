@@ -50,7 +50,7 @@ function AddInventoryDialog({
   onOpenChange: (open: boolean) => void;
   defaultName: string;
   defaultUnit: string;
-  onCreated: (item: any) => void;
+  onCreated: (item: Record<string, unknown>) => void;
 }) {
   const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,11 +92,12 @@ function AddInventoryDialog({
       });
       onCreated(newItem);
       onOpenChange(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
       toast({
         title: "Error",
-        description: err.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -203,15 +204,18 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
   };
 
   // Handler setelah item baru berhasil ditambahkan ke inventory
-  const handleInventoryCreated = async (newItem: any) => {
+  const handleInventoryCreated = async (newItem: Record<string, unknown>) => {
     if (!newReception.requestId) return;
 
     try {
+      // Get item ID with proper type checking
+      const itemId = typeof newItem.id === 'string' ? newItem.id : String(newItem.id || '');
+      
       // 2. PATCH purchase request dengan itemId baru
       const response = await fetch(`/api/purchase-requests/${newReception.requestId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: newItem.id }),
+        body: JSON.stringify({ itemId: itemId }),
       });
 
       if (!response.ok) {
@@ -219,17 +223,18 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
       }
 
       // 3. Update state form penerimaan
-      setNewReception((prev) => ({ ...prev, itemId: newItem.id }));
+      setNewReception((prev) => ({ ...prev, itemId }));
       setShowAddInventory(false);
 
       toast({
         title: "Sukses",
         description: "Inventory baru berhasil ditambahkan dan terhubung.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       toast({
         title: "Error",
-        description: err.message,
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -280,10 +285,11 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
       resetForm();
       onReceptionCreated();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       toast({
         title: "Error",
-        description: err.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -57,7 +57,7 @@ export function ReceptionClient() {
   
   // State untuk data penerimaan dan statistik
   const [receptions, setReceptions] = useState<Reception[]>([])
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [_inventory, setInventory] = useState<InventoryItem[]>([])
   const [stats, setStats] = useState<ReceptionStats>({
     totalReceptions: 0,
     completeReceptions: 0,
@@ -69,7 +69,7 @@ export function ReceptionClient() {
   const [searchTerm, setSearchTerm] = useState("")
 
   // Mengambil data penerimaan dari API
-  const fetchReceptions = async () => {
+  const fetchReceptions = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/reception')
@@ -90,7 +90,7 @@ export function ReceptionClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   // Mengambil statistik penerimaan
   const fetchStats = async () => {
@@ -137,7 +137,7 @@ export function ReceptionClient() {
       fetchStats()
       fetchInventory()
     }
-  }, [session])
+  }, [session, fetchReceptions])
 
   // Filter penerimaan berdasarkan pencarian
   const filteredReceptions = receptions.filter(

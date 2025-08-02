@@ -81,7 +81,7 @@ export function EditDistributionDialog({
   editingDistribution,
   setEditingDistribution,
   editingItemIndex,
-  setEditingItemIndex,
+  setEditingItemIndex: _setEditingItemIndex,
   editingItemData,
   setEditingItemData,
   inventoryItems,

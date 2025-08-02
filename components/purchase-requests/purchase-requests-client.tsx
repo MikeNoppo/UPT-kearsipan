@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { Loader2 } from "lucide-react"
 import { CreateRequestDialog } from "@/components/purchase-requests/create-request-dialog"
@@ -45,7 +45,7 @@ export function PurchaseRequestsClient() {
   const [loading, setLoading] = useState(true)
 
   // Mengambil daftar permintaan pembelian dari API
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/purchase-requests')
@@ -66,14 +66,14 @@ export function PurchaseRequestsClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   // Load permintaan saat session tersedia
   useEffect(() => {
     if (session) {
       fetchRequests()
     }
-  }, [session])
+  }, [session, fetchRequests])
 
   if (status === 'loading' || loading) {
     return (
