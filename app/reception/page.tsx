@@ -29,6 +29,8 @@ import { ReceptionClient } from "@/components/reception/reception-client"
  * - Statistik penerimaan barang dan tingkat kelengkapan
  * - Pencarian dan penyaringan data penerimaan
  * - Pencatatan keterangan untuk setiap transaksi penerimaan barang
+ * - Dropdown permintaan pembelian menampilkan semua permintaan dari semua user
+ * - Informasi pembuat permintaan ditampilkan untuk transparansi
  */
 
 export default function ReceptionPage() {

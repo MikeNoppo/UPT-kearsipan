@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 // GET endpoint untuk mengambil permintaan pembelian yang sudah disetujui 
 // tapi belum ada penerimaan barangnya (available for reception)
+// Staff dan Admin dapat melihat semua permintaan pembelian dari semua user
 export async function GET(request: NextRequest) {
   try {
     // Verifikasi autentikasi user session
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Ambil purchase requests yang statusnya APPROVED (belum RECEIVED)
+    // Baik STAFF maupun ADMINISTRATOR dapat melihat semua permintaan pembelian
     const availablePurchaseRequests = await prisma.purchaseRequest.findMany({
       where: {
         status: 'APPROVED',

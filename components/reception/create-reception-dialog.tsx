@@ -32,6 +32,11 @@ interface PurchaseRequestOption {
   quantity: number;
   unit: string;
   itemId?: string | null;
+  requestedBy: {
+    id: string;
+    name: string;
+    username: string;
+  };
 }
 
 // Interface untuk props komponen utama
@@ -390,6 +395,9 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                         <span className="font-medium">{pr.requestNumber}</span>
                         <span className="text-sm text-muted-foreground">
                           {pr.itemName} ({pr.quantity} {pr.unit})
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Diminta oleh: {pr.requestedBy.name} (@{pr.requestedBy.username})
                         </span>
                       </div>
                     </SelectItem>

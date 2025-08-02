@@ -9,6 +9,7 @@ import { PurchaseRequestsClient } from "@/components/purchase-requests/purchase-
  * - Staff dapat mengajukan permintaan barang baru
  * - Administrator dan Staff dapat menyetujui atau menolak permintaan
  * - Tracking status permintaan dari pending hingga approved/rejected
+ * - Staff dan Admin dapat melihat semua permintaan pembelian dari semua pengguna
  * 
  * Alur kerja permintaan:
  * 1. Staff membuat permintaan dengan detail barang dan alasan
@@ -22,6 +23,8 @@ import { PurchaseRequestsClient } from "@/components/purchase-requests/purchase-
  * - Status tracking dengan badge visual
  * - Catatan dan alasan untuk setiap permintaan
  * - History lengkap permintaan dengan timestamp
+ * - Visibilitas semua permintaan pembelian untuk staff dan admin
+ * - Informasi pembuat permintaan di dropdown penerimaan barang
  */
 
 export default function PurchaseRequestsPage() {

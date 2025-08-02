@@ -37,10 +37,8 @@ export async function GET(request: NextRequest) {
     // Build where clause dengan logic authorization
     const where: Record<string, unknown> = {};
 
-    // Role-based access: Staff hanya lihat permintaan sendiri, Admin lihat semua
-    if (session.user.role === 'STAFF') {
-      where.requestedById = session.user.id;
-    }
+    // Role-based access: Baik Staff maupun Admin dapat melihat semua permintaan pembelian
+    // Tidak ada pembatasan berdasarkan user ID - semua permintaan dapat dilihat
 
     // Filter berdasarkan status permintaan
     if (status && status !== 'ALL') {
