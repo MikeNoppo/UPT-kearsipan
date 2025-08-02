@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -168,22 +168,27 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
     itemId: undefined as string | undefined,
   });
 
-  // Fetch data purchase request yang sudah di-approve
+  // Function untuk fetch purchase requests yang tersedia
+  const fetchAvailablePurchaseRequests = useCallback(() => {
+    fetch("/api/purchase-requests/available")
+      .then((res) => res.json())
+      .then((data) => setPurchaseRequests(data.purchaseRequests || []))
+      .catch(() => {
+        toast({
+          title: "Error",
+          description: "Gagal memuat data permintaan pembelian.",
+          variant: "destructive",
+        });
+        setPurchaseRequests([]);
+      });
+  }, [toast]);
+
+  // Fetch data purchase request yang sudah di-approve tapi belum ada receptionnya
   useEffect(() => {
     if (isOpen) {
-      fetch("/api/purchase-requests?status=APPROVED")
-        .then((res) => res.json())
-        .then((data) => setPurchaseRequests(data.purchaseRequests || []))
-        .catch(() => {
-          toast({
-            title: "Error",
-            description: "Gagal memuat data permintaan pembelian.",
-            variant: "destructive",
-          });
-          setPurchaseRequests([]);
-        });
+      fetchAvailablePurchaseRequests();
     }
-  }, [isOpen, toast]);
+  }, [isOpen, fetchAvailablePurchaseRequests]);
 
   // Handler saat memilih purchase request
   const handlePurchaseRequestSelect = (requestId: string) => {
@@ -284,6 +289,8 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
       setIsOpen(false);
       resetForm();
       onReceptionCreated();
+      // Refresh available purchase requests untuk dialog berikutnya
+      fetchAvailablePurchaseRequests();
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';

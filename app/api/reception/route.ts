@@ -185,6 +185,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Update purchase request status to RECEIVED if linked to a purchase request
+    if (validatedData.requestId) {
+      await prisma.purchaseRequest.update({
+        where: { id: validatedData.requestId },
+        data: {
+          status: 'RECEIVED',
+        },
+      });
+    }
+
     return NextResponse.json(reception, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

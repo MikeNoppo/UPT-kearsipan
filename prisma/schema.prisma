@@ -219,6 +219,7 @@ enum RequestStatus {
   PENDING
   APPROVED
   REJECTED
+  RECEIVED
 }
 
 enum ReceptionStatus {

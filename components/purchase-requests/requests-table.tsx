@@ -16,7 +16,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Clock, Loader2, Edit } from "lucide-react"
+import { Check, X, Clock, Loader2, Edit, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface PurchaseRequest {
@@ -25,7 +25,7 @@ interface PurchaseRequest {
   quantity: number
   unit: string
   reason: string
-  status: "PENDING" | "APPROVED" | "REJECTED"
+  status: "PENDING" | "APPROVED" | "REJECTED" | "RECEIVED" 
   notes?: string
   requestDate: string
   reviewDate?: string
@@ -78,6 +78,13 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
           <Badge variant="default" className="bg-green-600">
             <Check className="mr-1 h-3 w-3" />
             Disetujui
+          </Badge>
+        )
+      case "RECEIVED":
+        return (
+          <Badge variant="default" className="bg-blue-600">
+            <Package className="mr-1 h-3 w-3" />
+            Diterima
           </Badge>
         )
       case "REJECTED":

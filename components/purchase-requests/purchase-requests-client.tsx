@@ -14,7 +14,7 @@ interface PurchaseRequest {
   quantity: number
   unit: string
   reason: string
-  status: "PENDING" | "APPROVED" | "REJECTED"
+  status: "PENDING" | "APPROVED" | "REJECTED" | "RECEIVED" | "RECEIVED"
   notes?: string
   requestDate: string
   reviewDate?: string
