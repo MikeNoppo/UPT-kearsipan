@@ -12,12 +12,7 @@ const updatePurchaseRequestSchema = z.object({
   reason: z.string().min(1, 'Reason is required').optional(),
   notes: z.string().optional(),
   itemId: z.string().optional(),
-});
-
-// Validation schema for reviewing purchase request (admin and staff)
-const reviewPurchaseRequestSchema = z.object({
-  status: z.enum(['APPROVED', 'REJECTED']),
-  notes: z.string().optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED','RECEIVED']).optional(),
 });
 
 // GET /api/purchase-requests/[id] - Get specific purchase request
@@ -100,72 +95,7 @@ export async function PATCH(
 
     const body = await request.json();
     
-    // Check if this is a review action (admin and staff can approve)
-    if ('status' in body && (body.status === 'APPROVED' || body.status === 'REJECTED')) {
-      // Both ADMINISTRATOR and STAFF can approve/reject requests
-      if (session.user.role !== 'ADMINISTRATOR' && session.user.role !== 'STAFF') {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
-
-      const reviewData = reviewPurchaseRequestSchema.parse(body);
-
-      // Check if purchase request exists and is pending
-      const existingRequest = await prisma.purchaseRequest.findUnique({
-        where: { id: params.id },
-      });
-
-      if (!existingRequest) {
-        return NextResponse.json(
-          { error: 'Purchase request not found' },
-          { status: 404 }
-        );
-      }
-
-      if (existingRequest.status !== 'PENDING') {
-        return NextResponse.json(
-          { error: 'Purchase request has already been reviewed' },
-          { status: 400 }
-        );
-      }
-
-      const updatedRequest = await prisma.purchaseRequest.update({
-        where: { id: params.id },
-        data: {
-          status: reviewData.status,
-          notes: reviewData.notes,
-          reviewedById: session.user.id,
-          reviewDate: new Date(),
-        },
-        include: {
-          requestedBy: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-            },
-          },
-          reviewedBy: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-            },
-          },
-          item: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              stock: true,
-            },
-          },
-        },
-      });
-
-      return NextResponse.json(updatedRequest);
-    }
-
-    // Regular update (staff can only update their own pending requests)
+    // Regular update with possible status change
     const validatedData = updatePurchaseRequestSchema.parse(body);
 
     const existingRequest = await prisma.purchaseRequest.findUnique({
@@ -179,22 +109,45 @@ export async function PATCH(
       );
     }
 
-    // Staff can only update their own pending requests
-    if (
-      session.user.role === 'STAFF' &&
-      (existingRequest.requestedById !== session.user.id ||
-        existingRequest.status !== 'PENDING')
-    ) {
+    // Authorization logic:
+    // - Admin can edit any request and change status
+    // - Staff can only edit their own requests and change status for their own requests
+    const isAdmin = session.user.role === 'ADMINISTRATOR';
+    const isOwner = session.user.id === existingRequest.requestedById;
+    
+    if (!isAdmin && !isOwner) {
       return NextResponse.json(
         { error: 'Cannot update this purchase request' },
         { status: 403 }
       );
     }
 
+    // Prepare update data
+    const updateData: any = {};
+    
+    // Basic fields can be updated by owner or admin
+    if (validatedData.itemName !== undefined) updateData.itemName = validatedData.itemName;
+    if (validatedData.quantity !== undefined) updateData.quantity = validatedData.quantity;
+    if (validatedData.unit !== undefined) updateData.unit = validatedData.unit;
+    if (validatedData.reason !== undefined) updateData.reason = validatedData.reason;
+    if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
+    if (validatedData.itemId !== undefined) updateData.itemId = validatedData.itemId;
+    
+    // Status can be updated by admin (any request) or staff (own request)
+    if (validatedData.status !== undefined && (isAdmin || isOwner)) {
+      updateData.status = validatedData.status;
+      
+      // If status is being set to APPROVED or REJECTED, set reviewer info
+      if (validatedData.status === 'APPROVED' || validatedData.status === 'REJECTED') {
+        updateData.reviewedById = session.user.id;
+        updateData.reviewDate = new Date();
+      }
+    }
+
     // Check if item exists (if itemId provided)
-    if (validatedData.itemId) {
+    if (updateData.itemId) {
       const existingItem = await prisma.inventoryItem.findUnique({
-        where: { id: validatedData.itemId },
+        where: { id: updateData.itemId },
       });
 
       if (!existingItem) {
@@ -207,7 +160,7 @@ export async function PATCH(
 
     const updatedRequest = await prisma.purchaseRequest.update({
       where: { id: params.id },
-      data: validatedData,
+      data: updateData,
       include: {
         requestedBy: {
           select: {

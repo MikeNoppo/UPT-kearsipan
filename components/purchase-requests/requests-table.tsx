@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Check, X, Clock, Loader2, Edit, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PurchaseRequestActions } from "./request-actions"
@@ -158,17 +159,29 @@ export function RequestsTable({
 
     try {
       setSubmitting(true)
+      
+      // Prepare request body - include status if it's being changed
+      const requestBody: any = {
+        itemName: editingRequest.itemName,
+        quantity: editingRequest.quantity,
+        unit: editingRequest.unit,
+        reason: editingRequest.reason,
+      }
+      
+      // Add status if user can edit it (Admin can edit all, Staff can edit own)
+      const canEditStatus = userRole === "ADMINISTRATOR" || 
+        (userRole === "STAFF" && editingRequest.requestedBy.id === userId)
+      
+      if (canEditStatus && editingRequest.status) {
+        requestBody.status = editingRequest.status
+      }
+      
       const response = await fetch(`/api/purchase-requests/${editingRequest.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          itemName: editingRequest.itemName,
-          quantity: editingRequest.quantity,
-          unit: editingRequest.unit,
-          reason: editingRequest.reason,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -205,10 +218,21 @@ export function RequestsTable({
     <>
       {/* Edit Request Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Permintaan Pembelian</DialogTitle>
-            <DialogDescription>Ubah detail permintaan pembelian Anda</DialogDescription>
+            <DialogDescription>
+              Ubah detail permintaan pembelian Anda
+              {editingRequest && (
+                <span className="block mt-1 text-xs text-muted-foreground">
+                  ID: {editingRequest.requestNumber} | Status saat ini: {
+                    editingRequest.status === 'PENDING' ? 'Menunggu' :
+                    editingRequest.status === 'APPROVED' ? 'Disetujui' :
+                    editingRequest.status === 'REJECTED' ? 'Ditolak' : 'Diterima'
+                  }
+                </span>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -246,6 +270,36 @@ export function RequestsTable({
                 placeholder="Jelaskan alasan permintaan pembelian"
               />
             </div>
+            
+            {/* Status field - only for Admin or staff editing their own request */}
+            {editingRequest && (userRole === "ADMINISTRATOR" || 
+              (userRole === "STAFF" && editingRequest.requestedBy.id === userId)) && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={editingRequest.status}
+                  onValueChange={(value: "PENDING" | "APPROVED" | "REJECTED") => 
+                    setEditingRequest({ ...editingRequest, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PENDING">Menunggu</SelectItem>
+                    <SelectItem value="APPROVED">Disetujui</SelectItem>
+                    <SelectItem value="REJECTED">Ditolak</SelectItem>
+                    <SelectItem value="RECEIVED">Diterima</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {userRole === "ADMINISTRATOR" ? 
+                    "Administrator dapat mengubah status semua permintaan" :
+                    "Anda dapat mengubah status permintaan sendiri"
+                  }
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button onClick={handleEditRequest} disabled={submitting}>
