@@ -386,15 +386,21 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                 disabled={isSubmitting}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih Permintaan Pembelian" />
+                  <SelectValue placeholder="Pilih Permintaan Pembelian">
+                    {newReception.purchaseRequestId && (
+                      <span>
+                        {purchaseRequests.find(pr => pr.id === newReception.purchaseRequestId)?.itemName || "Pilih Permintaan Pembelian"}
+                      </span>
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {purchaseRequests.map((pr) => (
                     <SelectItem key={pr.id} value={pr.id}>
                       <div className="flex flex-col">
-                        <span className="font-medium">{pr.requestNumber}</span>
+                        <span className="font-medium">{pr.itemName} ({pr.quantity} {pr.unit})</span>
                         <span className="text-sm text-muted-foreground">
-                          {pr.itemName} ({pr.quantity} {pr.unit})
+                          {pr.requestNumber}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           Diminta oleh: {pr.requestedBy.name} (@{pr.requestedBy.username})
