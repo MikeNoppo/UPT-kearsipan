@@ -56,7 +56,7 @@ export function PurchaseRequestActions({
   // Check if user can delete this request
   const canDelete = 
     (currentUserRole === 'ADMIN' || currentUserId === purchaseRequest.requestedBy.id) &&
-    ['PENDING', 'REJECTED'].includes(purchaseRequest.status);
+    ['PENDING', 'REJECTED', 'APPROVED'].includes(purchaseRequest.status);
 
   // If no actions available, don't render dropdown
   if (!canDelete) {

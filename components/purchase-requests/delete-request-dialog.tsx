@@ -128,7 +128,7 @@ export function DeletePurchaseRequestDialog({
 
   if (!purchaseRequest) return null;
 
-  const canDelete = ['PENDING', 'REJECTED'].includes(purchaseRequest.status);
+  const canDelete = ['PENDING', 'REJECTED', 'APPROVED'].includes(purchaseRequest.status);
 
   return (
     <AlertDialog key={purchaseRequest.id} open={open} onOpenChange={handleOpenChange}>
@@ -159,7 +159,7 @@ export function DeletePurchaseRequestDialog({
               {!canDelete && (
                 <div className="p-3 border-l-4 border-red-500 bg-red-50 rounded-md">
                   <p className="text-sm text-red-800">
-                    <strong>Tidak dapat dihapus:</strong> Hanya permintaan dengan status "Menunggu" atau "Ditolak" yang dapat dihapus.
+                    <strong>Tidak dapat dihapus:</strong> Hanya permintaan dengan status "Menunggu", "Ditolak", atau "Disetujui" yang dapat dihapus.
                   </p>
                 </div>
               )}
@@ -168,6 +168,14 @@ export function DeletePurchaseRequestDialog({
                 <div className="p-3 border-l-4 border-yellow-500 bg-yellow-50 rounded-md">
                   <p className="text-sm text-yellow-800">
                     <strong>Peringatan:</strong> Permintaan ini masih dalam status menunggu persetujuan.
+                  </p>
+                </div>
+              )}
+
+              {canDelete && purchaseRequest.status === 'APPROVED' && (
+                <div className="p-3 border-l-4 border-orange-500 bg-orange-50 rounded-md">
+                  <p className="text-sm text-orange-800">
+                    <strong>Perhatian:</strong> Permintaan ini sudah disetujui. Penghapusan akan membatalkan persetujuan yang telah diberikan.
                   </p>
                 </div>
               )}

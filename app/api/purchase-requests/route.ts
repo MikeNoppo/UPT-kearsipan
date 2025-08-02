@@ -253,10 +253,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check if request can be deleted (only PENDING or REJECTED requests)
-    if (!['PENDING', 'REJECTED'].includes(existingRequest.status)) {
+    // Check if request can be deleted (only PENDING, REJECTED, or APPROVED requests)
+    // RECEIVED requests cannot be deleted as they may have inventory implications
+    if (!['PENDING', 'REJECTED', 'APPROVED'].includes(existingRequest.status)) {
       return NextResponse.json(
-        { error: 'Cannot delete approved or received requests' },
+        { error: 'Cannot delete received requests' },
         { status: 400 }
       );
     }
