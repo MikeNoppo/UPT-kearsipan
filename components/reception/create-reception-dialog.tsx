@@ -287,11 +287,15 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
         title: "Sukses",
         description: "Penerimaan barang berhasil dicatat.",
       });
-      setIsOpen(false);
-      resetForm();
-      onReceptionCreated();
-      // Refresh available purchase requests untuk dialog berikutnya
-      fetchAvailablePurchaseRequests();
+      
+      // Delay closing and refresh to ensure proper cleanup
+      setTimeout(() => {
+        setIsOpen(false);
+        resetForm();
+        onReceptionCreated();
+        // Refresh available purchase requests untuk dialog berikutnya
+        fetchAvailablePurchaseRequests();
+      }, 100);
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -320,19 +324,48 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
     setShowAddInventory(false);
   }
 
+  // Handle dialog open/close properly
+  const handleOpenChange = (open: boolean) => {
+    if (!isSubmitting) {
+      setTimeout(() => {
+        setIsOpen(open);
+        if (!open) {
+          resetForm();
+        }
+      }, 0);
+    }
+  };
+
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) resetForm();
-      }}>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange} modal={true}>
         <DialogTrigger asChild>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Catat Penerimaan
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent 
+          className="max-w-2xl"
+          onInteractOutside={(e) => {
+            if (isSubmitting) {
+              e.preventDefault();
+              return;
+            }
+            setTimeout(() => {
+              handleOpenChange(false);
+            }, 0);
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isSubmitting) {
+              e.preventDefault();
+              return;
+            }
+            setTimeout(() => {
+              handleOpenChange(false);
+            }, 0);
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Catat Penerimaan Barang</DialogTitle>
             <DialogDescription>

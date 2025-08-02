@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Package, CheckCircle, AlertCircle, Search, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { CreateReceptionDialog } from "./create-reception-dialog"
+import { EditReceptionDialog } from "./edit-reception-dialog"
+import { DeleteReceptionDialog } from "./delete-reception-dialog"
+import { ReceptionActions } from "./reception-actions"
 
 interface Reception {
   id: string
@@ -81,6 +84,10 @@ export function ReceptionClient() {
   })
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  // State untuk dialog edit dan delete
+  const [editReception, setEditReception] = useState<Reception | null>(null)
+  const [deleteReception, setDeleteReception] = useState<Reception | null>(null)
 
   // Mengambil data penerimaan dari API
   const fetchReceptions = useCallback(async () => {
@@ -128,6 +135,41 @@ export function ReceptionClient() {
     }
   }
 
+  // Handler untuk refresh data setelah edit/delete
+  const handleDataUpdate = () => {
+    fetchReceptions()
+    fetchStats()
+  }
+
+  // Handler untuk dialog state management
+  const handleEditReception = (reception: Reception) => {
+    setTimeout(() => {
+      setEditReception(reception);
+    }, 0);
+  };
+
+  const handleDeleteReception = (reception: Reception) => {
+    setTimeout(() => {
+      setDeleteReception(reception);
+    }, 0);
+  };
+
+  const handleCloseEditDialog = (open: boolean) => {
+    if (!open) {
+      setTimeout(() => {
+        setEditReception(null);
+      }, 100);
+    }
+  };
+
+  const handleCloseDeleteDialog = (open: boolean) => {
+    if (!open) {
+      setTimeout(() => {
+        setDeleteReception(null);
+      }, 100);
+    }
+  };
+
   // Mengambil daftar inventaris untuk pilihan item
   const fetchInventory = async () => {
     try {
@@ -152,6 +194,14 @@ export function ReceptionClient() {
       fetchInventory()
     }
   }, [session, fetchReceptions])
+
+  // Cleanup dialog state saat component unmount
+  useEffect(() => {
+    return () => {
+      setEditReception(null);
+      setDeleteReception(null);
+    };
+  }, []);
 
   // Filter penerimaan berdasarkan pencarian
   const filteredReceptions = receptions.filter(
@@ -213,10 +263,7 @@ export function ReceptionClient() {
           <p className="text-muted-foreground">Catat barang yang diterima dan perbarui stok inventaris</p>
         </div>
         <CreateReceptionDialog 
-          onReceptionCreated={() => {
-            fetchReceptions()
-            fetchStats()
-          }}
+          onReceptionCreated={handleDataUpdate}
         />
       </div>
 
@@ -291,6 +338,7 @@ export function ReceptionClient() {
                 <TableHead>Diterima Oleh</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-[70px]">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -341,12 +389,35 @@ export function ReceptionClient() {
                   <TableCell>{reception.receivedBy.name}</TableCell>
                   <TableCell>{new Date(reception.receiptDate).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{getStatusBadge(reception.status)}</TableCell>
+                  <TableCell>
+                    <ReceptionActions
+                      reception={reception}
+                      onEdit={handleEditReception}
+                      onDelete={handleDeleteReception}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Reception Dialog */}
+      <EditReceptionDialog
+        reception={editReception}
+        open={!!editReception}
+        onOpenChange={handleCloseEditDialog}
+        onReceptionUpdated={handleDataUpdate}
+      />
+
+      {/* Delete Reception Dialog */}
+      <DeleteReceptionDialog
+        reception={deleteReception}
+        open={!!deleteReception}
+        onOpenChange={handleCloseDeleteDialog}
+        onReceptionDeleted={handleDataUpdate}
+      />
     </div>
   )
 }
