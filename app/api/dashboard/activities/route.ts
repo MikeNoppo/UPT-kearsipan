@@ -102,9 +102,9 @@ export async function GET() {
       // Query arsip yang dijadwalkan musnah dalam 7 hari (perlu review)
       prisma.archive.findMany({
         where: {
-          status: 'SCHEDULED_DESTRUCTION',
           destructionDate: {
-            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Within 7 days
+            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Within 7 days
+            gte: new Date() // Only future destruction dates
           }
         },
         orderBy: { destructionDate: 'asc' },
@@ -182,9 +182,9 @@ export async function GET() {
     if (scheduledDestructionArchives.length > 0) {
       const count = await prisma.archive.count({
         where: {
-          status: 'SCHEDULED_DESTRUCTION',
           destructionDate: {
-            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            gte: new Date()
           }
         }
       })
@@ -201,11 +201,15 @@ export async function GET() {
 
     // Add recent archive updates
     recentArchives.forEach(archive => {
+      // Determine status based on archive properties
+      const isPermanent = archive.destructionDate === null
+      const archiveStatus = isPermanent ? 'PERMANENT' : 'TEMPORARY'
+      
       letterArchiveActivities.push({
         id: archive.id,
         type: 'archive',
-        title: `Arsip ${archive.status === 'PERMANENT' ? 'permanen' : 'diperbarui'}: ${archive.title}`,
-        status: archive.status,
+        title: `Arsip ${isPermanent ? 'permanen' : 'diperbarui'}: ${archive.title}`,
+        status: archiveStatus,
         description: 'Status dikonfirmasi',
         color: 'bg-gray-500'
       })

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -19,6 +18,7 @@ import { AddDistributionDialog } from "@/components/distribution/add-distributio
 import { EditDistributionDialog } from "@/components/distribution/edit-distribution-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+
 
 /**
  * Distribution Page - Halaman distribusi/pengeluaran barang
@@ -172,7 +172,7 @@ export default function DistributionPage() {
       const data = await response.json();
       setDistributions(data.distributions);
       setTotalPages(data.pagination.pages);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch distributions",
@@ -192,7 +192,7 @@ export default function DistributionPage() {
       }
       const data = await response.json();
       setDistributionStats(data);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch distribution statistics",
@@ -209,7 +209,7 @@ export default function DistributionPage() {
       }
       const data = await response.json();
       setInventoryItems(data);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch inventory items",
@@ -229,7 +229,7 @@ export default function DistributionPage() {
     fetchDistributions();
     fetchDistributionStats();
     fetchInventoryItems();
-  }, [session, status, router]);
+  }, [session, status, router, fetchDistributions, fetchDistributionStats, fetchInventoryItems]);
 
   const handleAddDistribution = async () => {
     if (
@@ -325,7 +325,7 @@ export default function DistributionPage() {
               editingDistribution.distributionDate
             ).toISOString(),
             purpose: editingDistribution.purpose,
-            items: editingDistribution.items.map((item: any) => ({
+            items: editingDistribution.items.map((item: DistributionItem) => ({
               itemName: item.itemName,
               quantity: item.quantity,
               unit: item.unit,

@@ -59,7 +59,12 @@ interface EditDistributionDialogProps {
     unit: string
     itemId: string
   }
-  setEditingItemData: (data: any) => void
+  setEditingItemData: (data: {
+    itemName: string
+    quantity: number
+    unit: string
+    itemId: string
+  }) => void
   inventoryItems: InventoryItem[]
   isSubmitting: boolean
   handleEditDistribution: () => void

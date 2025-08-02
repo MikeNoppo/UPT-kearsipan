@@ -156,7 +156,7 @@ export default function UsersPage() {
 
     fetchUsers()
     fetchUserStats()
-  }, [session, status, router])
+  }, [session, status, router, fetchUsers, fetchUserStats])
 
   // Fungsi untuk menentukan badge role user
   const getRoleBadge = (role: string) => {

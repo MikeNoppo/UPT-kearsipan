@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { Plus } from "lucide-react"
@@ -28,7 +27,6 @@ export function ArchiveInventoryClient({
   const { data: session } = useSession()
   const [archives, setArchives] = useState<Archive[]>(initialArchives.map(enrichArchiveWithStatus))
   const [archiveStats, setArchiveStats] = useState<ArchiveStats | null>(initialStats)
-  const [loading, setLoading] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingArchive, setEditingArchive] = useState<Archive | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -53,7 +51,6 @@ export function ArchiveInventoryClient({
 
   // Mengambil data arsip dengan filter dan pagination
   const fetchArchives = useCallback(async () => {
-    setLoading(true)
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -71,14 +68,12 @@ export function ArchiveInventoryClient({
       const enrichedArchives = data.archives.map(enrichArchiveWithStatus)
       setArchives(enrichedArchives)
       setTotalPages(data.pagination.pages)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch archives",
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }, [currentPage, searchTerm, categoryFilter, retentionFilter, toast])
 
@@ -91,7 +86,7 @@ export function ArchiveInventoryClient({
       }
       const data = await response.json()
       setArchiveStats(data)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch archive statistics",

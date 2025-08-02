@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
@@ -104,7 +104,7 @@ export default function CorrespondencePage() {
       const data = await response.json()
       setLetters(data.letters)
       setTotalPages(data.pagination.pages)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch letters",
@@ -124,7 +124,7 @@ export default function CorrespondencePage() {
       }
       const data = await response.json()
       setLetterStats(data)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch letter statistics",
@@ -144,7 +144,7 @@ export default function CorrespondencePage() {
 
     fetchLetters()
     fetchLetterStats()
-  }, [session, status, router])
+  }, [session, status, router, fetchLetters, fetchLetterStats])
 
   // Menambah surat baru
   const handleAddLetter = async () => {

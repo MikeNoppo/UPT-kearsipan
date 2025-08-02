@@ -15,9 +15,7 @@ export async function GET() {
       distributedThisMonth,
       totalInventory,
       incomingLettersThisMonth,
-      outgoingLettersThisMonth,
-      permanentArchives,
-      scheduledDestructionArchives
+      outgoingLettersThisMonth
     ] = await Promise.all([
       prisma.purchaseRequest.count({
         where: { status: 'PENDING' }
@@ -45,12 +43,6 @@ export async function GET() {
           createdAt: { gte: currentMonth }
         }
       }),
-      prisma.archive.count({
-        where: { status: 'PERMANENT' }
-      }),
-      prisma.archive.count({
-        where: { status: 'SCHEDULED_DESTRUCTION' }
-      })
     ])
 
     const stats = {
@@ -60,8 +52,6 @@ export async function GET() {
       totalInventory,
       incomingLettersThisMonth,
       outgoingLettersThisMonth,
-      permanentArchives,
-      scheduledDestructionArchives
     }
 
     return NextResponse.json(stats)

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
 import type { Archive } from "@/types/archive"
-import { getArchiveStatus, isArchiveDestroyed } from "@/lib/archive-utils"
+import { getArchiveStatus } from "@/lib/archive-utils"
 
 interface EditArchiveDialogProps {
   archive: Archive | null

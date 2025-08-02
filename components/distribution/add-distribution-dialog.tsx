@@ -22,19 +22,21 @@ interface NewDistributionItem {
   itemId?: string
 }
 
+interface NewDistribution {
+  staffName: string
+  department: string
+  distributionDate: string
+  purpose: string
+  items: NewDistributionItem[]
+}
+
 interface AddDistributionDialogProps {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
-  newDistribution: {
-    staffName: string
-    department: string
-    distributionDate: string
-    purpose: string
-    items: NewDistributionItem[]
-  }
-  setNewDistribution: React.Dispatch<React.SetStateAction<any>>
+  newDistribution: NewDistribution
+  setNewDistribution: React.Dispatch<React.SetStateAction<NewDistribution>>
   currentItem: NewDistributionItem & { itemId: string }
-  setCurrentItem: React.Dispatch<React.SetStateAction<any>>
+  setCurrentItem: React.Dispatch<React.SetStateAction<NewDistributionItem & { itemId: string }>>
   inventoryItems: InventoryItem[]
   handleItemSelection: (itemId: string) => void
   handleAddItem: () => void

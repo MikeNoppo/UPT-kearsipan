@@ -7,6 +7,18 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingDown, ExternalLink } from "lucide-react"
 
+interface Activity {
+  title: string
+  description: string
+  status?: string
+  color?: string
+}
+
+interface DashboardActivities {
+  inventoryActivities: Activity[]
+  letterArchiveActivities: Activity[]
+}
+
 /**
  * Dashboard Page - Halaman utama dashboard setelah login
  * 
@@ -29,10 +41,7 @@ import { Package, ShoppingCart, Download, Upload, Archive, TrendingUp, TrendingD
 export default function DashboardPage() {
   const { data: session } = useSession()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
-  const [activities, setActivities] = useState<{
-    inventoryActivities: any[]
-    letterArchiveActivities: any[]
-  } | null>(null)
+  const [activities, setActivities] = useState<DashboardActivities | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Memuat data dashboard saat komponen dimount atau session berubah
@@ -80,7 +89,8 @@ export default function DashboardPage() {
   }
 
   // Fungsi untuk mengkonversi status enum ke teks yang dapat dibaca
-  const getStatusText = (status: string) => {
+  const getStatusText = (status?: string) => {
+    if (!status) return ''
     switch (status) {
       case 'PENDING': return 'Pending'
       case 'APPROVED': return 'Disetujui'

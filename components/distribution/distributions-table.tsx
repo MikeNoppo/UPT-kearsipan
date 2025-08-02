@@ -30,7 +30,7 @@ interface Distribution {
 
 interface DistributionsTableProps {
   distributions: Distribution[]
-  session: any
+  session: { user?: { name?: string; role?: string } } | null
   setEditingDistribution: (dist: Distribution) => void
   handleDeleteDistribution: (id: string) => void
 }
@@ -84,7 +84,7 @@ export function DistributionsTable({
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                {session?.user.role === "ADMINISTRATOR" && (
+                {session?.user?.role === "ADMINISTRATOR" && (
                   <Button
                     variant="outline"
                     size="sm"

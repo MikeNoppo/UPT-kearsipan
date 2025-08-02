@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
@@ -68,7 +68,7 @@ interface StockTransaction {
 }
 
 export default function InventoryPage() {
-  const { data: session } = useSession()
+  useSession() // Authentication check
   const [items, setItems] = useState<InventoryItem[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -77,13 +77,8 @@ export default function InventoryPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
   const [availableCategories, setAvailableCategories] = useState<string[]>([])
 
-  // Memuat daftar inventaris saat komponen dimount
-  useEffect(() => {
-    fetchItems()
-  }, [])
-
   // Mengambil data inventaris dari API
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       const response = await fetch('/api/inventory')
       if (response.ok) {
@@ -104,7 +99,12 @@ export default function InventoryPage() {
     } catch (error) {
       console.error('Error fetching items:', error)
     }
-  }
+  }, [selectedCategory])
+
+  // Memuat daftar inventaris saat komponen dimount
+  useEffect(() => {
+    fetchItems()
+  }, [fetchItems])
 
   // Data form untuk item baru
   const [newItem, setNewItem] = useState({

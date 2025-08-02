@@ -153,7 +153,6 @@ export async function POST(request: NextRequest) {
         category: data.category,
         creationDate: new Date(data.creationDate),
         retentionPeriod: data.retentionPeriod,
-        status: data.status,
         location: data.location,
         description: data.description,
         notes: data.notes,
