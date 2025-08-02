@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 // Validation schema for creating reception
 const createReceptionSchema = z.object({
-  requestId: z.string().optional(),
+  purchaseRequestId: z.string().optional(),
   itemName: z.string().min(1, 'Item name is required'),
   requestedQuantity: z.number().min(1, 'Requested quantity must be at least 1'),
   receivedQuantity: z.number().min(0, 'Received quantity must be at least 0'),
@@ -73,6 +73,19 @@ export async function GET(request: NextRequest) {
               unit: true,
             },
           },
+          purchaseRequest: {
+            select: {
+              id: true,
+              requestNumber: true,
+              requestedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  username: true,
+                },
+              },
+            },
+          },
         },
       }),
       prisma.reception.count({ where }),
@@ -131,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     const reception = await prisma.reception.create({
       data: {
-        requestId: validatedData.requestId,
+        purchaseRequestId: validatedData.purchaseRequestId,
         itemName: validatedData.itemName,
         requestedQuantity: validatedData.requestedQuantity,
         receivedQuantity: validatedData.receivedQuantity,
@@ -186,9 +199,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Update purchase request status to RECEIVED if linked to a purchase request
-    if (validatedData.requestId) {
+    if (validatedData.purchaseRequestId) {
       await prisma.purchaseRequest.update({
-        where: { id: validatedData.requestId },
+        where: { id: validatedData.purchaseRequestId },
         data: {
           status: 'RECEIVED',
         },

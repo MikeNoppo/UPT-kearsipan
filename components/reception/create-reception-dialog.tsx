@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 // Interface untuk data Purchase Request dari API
 interface PurchaseRequestOption {
   id: string;
+  requestNumber: string;
   itemName: string;
   quantity: number;
   unit: string;
@@ -164,7 +165,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
     receiptDate: new Date().toISOString().split('T')[0],
     notes: "",
     status: "COMPLETE" as "COMPLETE" | "PARTIAL" | "DIFFERENT",
-    requestId: "",
+    purchaseRequestId: "",
     itemId: undefined as string | undefined,
   });
 
@@ -196,7 +197,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
     if (selected) {
       setNewReception((prev) => ({
         ...prev,
-        requestId: requestId,
+        purchaseRequestId: requestId,
         itemName: selected.itemName,
         requestedQuantity: selected.quantity,
         receivedQuantity: selected.quantity, // Default samakan dengan yang diminta
@@ -210,14 +211,14 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
 
   // Handler setelah item baru berhasil ditambahkan ke inventory
   const handleInventoryCreated = async (newItem: Record<string, unknown>) => {
-    if (!newReception.requestId) return;
+    if (!newReception.purchaseRequestId) return;
 
     try {
       // Get item ID with proper type checking
       const itemId = typeof newItem.id === 'string' ? newItem.id : String(newItem.id || '');
       
       // 2. PATCH purchase request dengan itemId baru
-      const response = await fetch(`/api/purchase-requests/${newReception.requestId}`, {
+      const response = await fetch(`/api/purchase-requests/${newReception.purchaseRequestId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId: itemId }),
@@ -313,7 +314,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
         receiptDate: new Date().toISOString().split('T')[0],
         notes: "",
         status: "COMPLETE",
-        requestId: "",
+        purchaseRequestId: "",
         itemId: undefined,
     });
     setShowAddInventory(false);
@@ -342,7 +343,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
             <div className="grid gap-2">
               <Label htmlFor="purchaseRequest">Permintaan Pembelian *</Label>
               <Select
-                value={newReception.requestId}
+                value={newReception.purchaseRequestId}
                 onValueChange={handlePurchaseRequestSelect}
                 disabled={isSubmitting}
               >
@@ -352,14 +353,19 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                 <SelectContent>
                   {purchaseRequests.map((pr) => (
                     <SelectItem key={pr.id} value={pr.id}>
-                      {pr.itemName} ({pr.quantity} {pr.unit})
+                      <div className="flex flex-col">
+                        <span className="font-medium">{pr.requestNumber}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {pr.itemName} ({pr.quantity} {pr.unit})
+                        </span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             
-            {newReception.requestId && (
+            {newReception.purchaseRequestId && (
               <>
                 {showAddInventory && (
                   <div className="p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded-md">

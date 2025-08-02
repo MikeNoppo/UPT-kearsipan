@@ -75,6 +75,7 @@ model StockTransaction {
 
 model PurchaseRequest {
   id              String   @id @default(cuid())
+  requestNumber   String   @unique // Format: PR-001, PR-002, etc.
   itemName        String
   quantity        Int
   unit            String
@@ -93,6 +94,7 @@ model PurchaseRequest {
   reviewedBy      User? @relation("ReviewedBy", fields: [reviewedById], references: [id])
   itemId          String?
   item            InventoryItem? @relation(fields: [itemId], references: [id])
+  receptions      Reception[] // Relasi ke penerimaan barang
 
   @@map("purchase_requests")
 }
@@ -115,6 +117,8 @@ model Reception {
   receivedBy          User @relation("ReceivedBy", fields: [receivedById], references: [id])
   itemId              String?
   item                InventoryItem? @relation(fields: [itemId], references: [id])
+  purchaseRequestId   String? // Relasi ke purchase request
+  purchaseRequest     PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
 
   @@map("receptions")
 }

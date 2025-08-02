@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 
 interface PurchaseRequest {
   id: string
+  requestNumber: string
   itemName: string
   quantity: number
   unit: string
@@ -62,6 +63,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingRequest, setEditingRequest] = useState<PurchaseRequest | null>(null)
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null)
+
 
   // Fungsi untuk menentukan badge status permintaan
   const getStatusBadge = (status: string) => {
@@ -259,6 +261,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>ID Permintaan</TableHead>
                 <TableHead>Nama Barang</TableHead>
                 <TableHead>Jumlah</TableHead>
                 <TableHead>Pemohon</TableHead>
@@ -270,6 +273,11 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
             <TableBody>
               {filteredRequests.map((request) => (
                 <TableRow key={request.id}>
+                  <TableCell className="font-medium">
+                    <code className="text-xs bg-muted px-2 py-1 rounded">
+                      {request.requestNumber}
+                    </code>
+                  </TableCell>
                   <TableCell className="font-medium">{request.itemName}</TableCell>
                   <TableCell>
                     {request.quantity} {request.unit}

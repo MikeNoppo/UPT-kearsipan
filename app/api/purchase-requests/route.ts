@@ -136,8 +136,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Generate request number
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    
+    // Get the count of requests created today to generate sequence number
+    const startOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+    
+    const todayRequestsCount = await prisma.purchaseRequest.count({
+      where: {
+        createdAt: {
+          gte: startOfDay,
+          lt: endOfDay,
+        },
+      },
+    });
+    
+    const sequence = String(todayRequestsCount + 1).padStart(3, '0');
+    const requestNumber = `PR-${year}-${month}-${sequence}`;
+
     const purchaseRequest = await prisma.purchaseRequest.create({
       data: {
+        requestNumber,
         itemName: validatedData.itemName,
         quantity: validatedData.quantity,
         unit: validatedData.unit,

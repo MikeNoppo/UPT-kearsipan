@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 
 interface PurchaseRequest {
   id: string
+  requestNumber: string
   itemName: string
   quantity: number
   unit: string

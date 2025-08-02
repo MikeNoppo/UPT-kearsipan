@@ -27,6 +27,20 @@ interface Reception {
     name: string
     username: string
   }
+  requestedBy?: {
+    id: string
+    name: string
+    username: string
+  }
+  purchaseRequest?: {
+    id: string
+    requestNumber: string
+    requestedBy: {
+      id: string
+      name: string
+      username: string
+    }
+  }
   item?: {
     id: string
     name: string
@@ -143,7 +157,7 @@ export function ReceptionClient() {
   const filteredReceptions = receptions.filter(
     (reception) =>
       reception.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (reception.requestId && reception.requestId.toLowerCase().includes(searchTerm.toLowerCase())),
+      (reception.purchaseRequest?.requestNumber && reception.purchaseRequest.requestNumber.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
   // Fungsi untuk menentukan badge status penerimaan
@@ -273,6 +287,7 @@ export function ReceptionClient() {
                 <TableHead>Nama Barang</TableHead>
                 <TableHead>Diminta</TableHead>
                 <TableHead>Diterima</TableHead>
+                <TableHead>Diminta Oleh</TableHead>
                 <TableHead>Diterima Oleh</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
@@ -281,7 +296,15 @@ export function ReceptionClient() {
             <TableBody>
               {filteredReceptions.map((reception) => (
                 <TableRow key={reception.id}>
-                  <TableCell className="font-medium">{reception.requestId || "-"}</TableCell>
+                  <TableCell className="font-medium">
+                    {reception.purchaseRequest?.requestNumber ? (
+                      <code className="text-xs bg-muted px-2 py-1 rounded">
+                        {reception.purchaseRequest.requestNumber}
+                      </code>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div>
                       <div className="font-medium">{reception.itemName}</div>
@@ -303,6 +326,16 @@ export function ReceptionClient() {
                       <div className="text-sm text-muted-foreground">
                         {Math.round((reception.receivedQuantity / reception.requestedQuantity) * 100)}% dari diminta
                       </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {reception.purchaseRequest?.requestedBy ? (
+                      <div>
+                        <div className="font-medium">{reception.purchaseRequest.requestedBy.name}</div>
+                        <div className="text-sm text-muted-foreground">@{reception.purchaseRequest.requestedBy.username}</div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell>{reception.receivedBy.name}</TableCell>
