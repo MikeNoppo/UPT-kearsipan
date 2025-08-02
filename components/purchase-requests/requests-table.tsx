@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, Clock, Loader2, Edit, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { PurchaseRequestActions } from "./request-actions"
 
 interface PurchaseRequest {
   id: string
@@ -55,9 +56,16 @@ interface RequestsTableProps {
   userRole: string
   userId: string
   onRequestUpdated: () => void
+  onDeleteRequest?: (request: PurchaseRequest) => void
 }
 
-export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: RequestsTableProps) {
+export function RequestsTable({ 
+  requests, 
+  userRole, 
+  userId, 
+  onRequestUpdated, 
+  onDeleteRequest 
+}: RequestsTableProps) {
   const { toast } = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -267,7 +275,7 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
                 <TableHead>Pemohon</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Aksi</TableHead>
+                <TableHead className="w-[100px]">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -332,6 +340,16 @@ export function RequestsTable({ requests, userRole, userId, onRequestUpdated }: 
                             )}
                           </Button>
                         </>
+                      )}
+                      
+                      {/* Delete action using dropdown */}
+                      {onDeleteRequest && (
+                        <PurchaseRequestActions
+                          purchaseRequest={request}
+                          onDelete={onDeleteRequest}
+                          currentUserId={userId}
+                          currentUserRole={userRole}
+                        />
                       )}
                     </div>
                   </TableCell>

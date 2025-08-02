@@ -204,3 +204,88 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// DELETE /api/purchase-requests - Delete purchase request
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Purchase request ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if purchase request exists
+    const existingRequest = await prisma.purchaseRequest.findUnique({
+      where: { id },
+      include: {
+        requestedBy: {
+          select: { id: true, role: true },
+        },
+      },
+    });
+
+    if (!existingRequest) {
+      return NextResponse.json(
+        { error: 'Purchase request not found' },
+        { status: 404 }
+      );
+    }
+
+    // Authorization check: Only admin or the requester can delete
+    const canDelete = 
+      session.user.role === 'ADMIN' || 
+      session.user.id === existingRequest.requestedById;
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { error: 'Unauthorized to delete this request' },
+        { status: 403 }
+      );
+    }
+
+    // Check if request can be deleted (only PENDING or REJECTED requests)
+    if (!['PENDING', 'REJECTED'].includes(existingRequest.status)) {
+      return NextResponse.json(
+        { error: 'Cannot delete approved or received requests' },
+        { status: 400 }
+      );
+    }
+
+    // Check if there are any related receptions
+    const relatedReceptions = await prisma.reception.findMany({
+      where: { purchaseRequestId: id },
+    });
+
+    if (relatedReceptions.length > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete request that has related receptions' },
+        { status: 400 }
+      );
+    }
+
+    // Delete purchase request
+    await prisma.purchaseRequest.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ 
+      message: 'Purchase request deleted successfully' 
+    });
+  } catch (error) {
+    console.error('Error deleting purchase request:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

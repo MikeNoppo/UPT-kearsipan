@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { CreateRequestDialog } from "@/components/purchase-requests/create-request-dialog"
 import { StatsCards } from "@/components/purchase-requests/stats-cards"
 import { RequestsTable } from "@/components/purchase-requests/requests-table"
+import { DeletePurchaseRequestDialog } from "@/components/purchase-requests/delete-request-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 interface PurchaseRequest {
@@ -44,6 +45,9 @@ export function PurchaseRequestsClient() {
   const { toast } = useToast()
   const [requests, setRequests] = useState<PurchaseRequest[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // State untuk delete dialog
+  const [deleteRequest, setDeleteRequest] = useState<PurchaseRequest | null>(null)
 
   // Mengambil daftar permintaan pembelian dari API
   const fetchRequests = useCallback(async () => {
@@ -75,6 +79,28 @@ export function PurchaseRequestsClient() {
       fetchRequests()
     }
   }, [session, fetchRequests])
+
+  // Handler untuk delete dialog
+  const handleDeleteRequest = (request: PurchaseRequest) => {
+    setTimeout(() => {
+      setDeleteRequest(request);
+    }, 0);
+  };
+
+  const handleCloseDeleteDialog = (open: boolean) => {
+    if (!open) {
+      setTimeout(() => {
+        setDeleteRequest(null);
+      }, 100);
+    }
+  };
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      setDeleteRequest(null);
+    };
+  }, []);
 
   if (status === 'loading' || loading) {
     return (
@@ -109,6 +135,15 @@ export function PurchaseRequestsClient() {
         userRole={session.user.role}
         userId={session.user.id}
         onRequestUpdated={fetchRequests}
+        onDeleteRequest={handleDeleteRequest}
+      />
+
+      {/* Delete Request Dialog */}
+      <DeletePurchaseRequestDialog
+        purchaseRequest={deleteRequest}
+        open={!!deleteRequest}
+        onOpenChange={handleCloseDeleteDialog}
+        onRequestDeleted={fetchRequests}
       />
     </div>
   )
