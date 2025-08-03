@@ -30,7 +30,9 @@ export async function GET(
         documentName: true,
         documentSize: true,
         documentType: true,
-        hasDocument: true
+        hasDocument: true,
+        uploadedAt: true,
+        updatedAt: true
       }
     })
 
@@ -82,13 +84,19 @@ export async function GET(
       }
     }
 
-    // Return file with preview-optimized headers
+    // Generate cache-busting ETag based on uploadedAt or updatedAt
+    const lastModified = letter.uploadedAt || letter.updatedAt || new Date()
+    const etag = `"${letter.id}-${lastModified.getTime()}"`
+
+    // Return file with preview-optimized headers and cache-busting
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': 'inline', // inline instead of attachment for preview
         'Content-Length': fileBuffer.length.toString(),
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour for performance
+        'Cache-Control': 'no-cache, must-revalidate', // Prevent caching of potentially updated files
+        'ETag': etag, // Use ETag for conditional requests
+        'Last-Modified': lastModified.toUTCString(),
         'X-Frame-Options': 'SAMEORIGIN', // Security: only allow embedding in same origin
         'X-Content-Type-Options': 'nosniff', // Security: prevent MIME type sniffing
       }

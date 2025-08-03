@@ -45,6 +45,9 @@ export function FileUpload({
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Reset input value to allow selecting the same file again
+    event.target.value = ''
+
     // Validate file
     const maxSize = 10 * 1024 * 1024 // 10MB
     const allowedTypes = [
@@ -117,9 +120,6 @@ export function FileUpload({
     } finally {
       setUploading(false)
       setUploadProgress(0)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
     }
   }
 
@@ -178,13 +178,21 @@ export function FileUpload({
     }
   }
 
-  const handleReplace = () => {
-    fileInputRef.current?.click()
-  }
-
   return (
     <div className="space-y-2">
       <Label>Dokumen Surat</Label>
+      
+      {/* Hidden file input */}
+      <Input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+        onChange={handleFileSelect}
+        disabled={uploading || disabled}
+        className="hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       
       {currentFile ? (
         <div className="space-y-2">
@@ -215,7 +223,7 @@ export function FileUpload({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={handleReplace}
+                onClick={() => fileInputRef.current?.click()}
                 disabled={disabled || uploading}
                 title="Ganti file"
               >
@@ -236,15 +244,6 @@ export function FileUpload({
         </div>
       ) : (
         <div className="space-y-2">
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            onChange={handleFileSelect}
-            disabled={uploading || disabled}
-            className="hidden"
-            id="file-upload"
-          />
           <Button
             type="button"
             variant="outline"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { deleteFile } from "@/lib/upload"
 import { z } from "zod"
 
 const updateLetterSchema = z.object({
@@ -126,13 +127,40 @@ export async function PATCH(
     if (data.documentSize !== undefined) updateData.documentSize = data.documentSize
     if (data.documentType !== undefined) updateData.documentType = data.documentType
     
-    // If file is being updated/added, set uploadedAt
+    // If file is being updated/added, set uploadedAt and cleanup old file
     if (data.documentPath && data.documentPath !== existingLetter.documentPath) {
       updateData.uploadedAt = new Date()
+      
+      // Delete old file if exists
+      if (existingLetter.documentPath) {
+        try {
+          // Extract filename from path (e.g., "/uploads/letters/filename.pdf" -> "filename.pdf")
+          const oldFilename = existingLetter.documentPath.split('/').pop()
+          if (oldFilename) {
+            await deleteFile(oldFilename)
+          }
+        } catch (error) {
+          console.error('Failed to delete old file:', error)
+          // Don't fail the update if file deletion fails
+        }
+      }
     }
     
-    // If file is being removed, clear all file metadata
+    // If file is being removed, clear all file metadata and delete file
     if (data.hasDocument === false) {
+      // Delete existing file if exists
+      if (existingLetter.documentPath) {
+        try {
+          const oldFilename = existingLetter.documentPath.split('/').pop()
+          if (oldFilename) {
+            await deleteFile(oldFilename)
+          }
+        } catch (error) {
+          console.error('Failed to delete file:', error)
+          // Don't fail the update if file deletion fails
+        }
+      }
+      
       updateData.documentPath = null
       updateData.documentName = null
       updateData.documentSize = null
@@ -193,7 +221,21 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Delete letter
+    // Delete associated file if exists
+    if (existingLetter.documentPath) {
+      try {
+        // Extract filename from path (e.g., "/uploads/letters/filename.pdf" -> "filename.pdf")
+        const filename = existingLetter.documentPath.split('/').pop()
+        if (filename) {
+          await deleteFile(filename)
+        }
+      } catch (error) {
+        console.error('Failed to delete file:', error)
+        // Don't fail the deletion if file deletion fails
+      }
+    }
+
+    // Delete letter from database
     await prisma.letter.delete({
       where: { id },
     })

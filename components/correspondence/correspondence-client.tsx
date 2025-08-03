@@ -39,6 +39,9 @@ export function CorrespondenceClient({
   const [currentPage, setCurrentPage] = useState(initialPagination.currentPage)
   const [totalPages, setTotalPages] = useState(initialPagination.totalPages)
   
+  // Track pending file changes separately
+  const [pendingFileUpdate, setPendingFileUpdate] = useState<FileUploadResponse | null>(null)
+  
   const router = useRouter()
   const { toast } = useToast()
 
@@ -183,24 +186,46 @@ export function CorrespondenceClient({
   }
 
   const handleEditLetter = async () => {
-    if (!editingLetter) return
+    if (!editingLetter) {
+      return
+    }
 
     setIsSubmitting(true)
+    
     try {
+      // Use pending file update if available, otherwise use current editing letter data
+      const fileData = pendingFileUpdate ? {
+        hasDocument: true,
+        documentPath: pendingFileUpdate.path,
+        documentName: pendingFileUpdate.originalName,
+        documentSize: pendingFileUpdate.size,
+        documentType: pendingFileUpdate.type,
+      } : {
+        hasDocument: editingLetter.hasDocument,
+        documentPath: editingLetter.documentPath,
+        documentName: editingLetter.documentName,
+        documentSize: editingLetter.documentSize,
+        documentType: editingLetter.documentType,
+      }
+
+      const updateData = {
+        number: editingLetter.number,
+        date: new Date(editingLetter.date).toISOString(),
+        subject: editingLetter.subject,
+        type: editingLetter.type,
+        from: editingLetter.from,
+        to: editingLetter.to,
+        description: editingLetter.description,
+        // Include document information (use most recent data)
+        ...fileData
+      }
+
       const response = await fetch(`/api/letters/${editingLetter.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          number: editingLetter.number,
-          date: new Date(editingLetter.date).toISOString(),
-          subject: editingLetter.subject,
-          type: editingLetter.type,
-          from: editingLetter.from,
-          to: editingLetter.to,
-          description: editingLetter.description,
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (!response.ok) {
@@ -209,10 +234,20 @@ export function CorrespondenceClient({
       }
 
       const updatedLetter = await response.json()
+      
+      // Update letters list with fresh data from server
       setLetters(letters.map((letter) => 
         letter.id === updatedLetter.id ? updatedLetter : letter
       ))
+      
+      // Close the edit dialog - data will be fresh when reopened
       setEditingLetter(null)
+      setPendingFileUpdate(null) // Clear pending file update
+      
+      // Force refresh letters data to ensure consistency
+      await fetchLetters()
+      
+      // Refresh letter stats
       await fetchLetterStats()
       
       toast({
@@ -287,13 +322,23 @@ export function CorrespondenceClient({
   // File upload handlers for editing
   const handleEditFileUpload = (fileData: FileUploadResponse) => {
     if (editingLetter) {
-      setEditingLetter({
+      // Store pending file update
+      setPendingFileUpdate(fileData)
+      
+      const updatedLetter = {
         ...editingLetter,
         hasDocument: true,
         documentPath: fileData.path,
         documentName: fileData.originalName,
         documentSize: fileData.size,
         documentType: fileData.type,
+      }
+      setEditingLetter(updatedLetter)
+      
+      // Show success toast
+      toast({
+        title: "Success",
+        description: "File berhasil diganti",
       })
     }
   }
@@ -322,8 +367,11 @@ export function CorrespondenceClient({
       return
     }
 
-    // Open document in new tab
-    const previewUrl = `/api/letters/${letter.id}/preview`
+    // Add cache-busting parameter based on updatedAt to ensure fresh content
+    const timestamp = letter.updatedAt ? new Date(letter.updatedAt).getTime() : Date.now()
+    const previewUrl = `/api/letters/${letter.id}/preview?t=${timestamp}`
+    
+    console.log('Opening preview URL:', previewUrl)
     window.open(previewUrl, '_blank')
   }
 
@@ -456,7 +504,10 @@ export function CorrespondenceClient({
 
       <EditLetterDialog
         isOpen={!!editingLetter}
-        onOpenChange={() => setEditingLetter(null)}
+        onOpenChange={() => {
+          setEditingLetter(null)
+          setPendingFileUpdate(null)
+        }}
         editingLetter={editingLetter}
         setEditingLetter={setEditingLetter}
         isSubmitting={isSubmitting}
