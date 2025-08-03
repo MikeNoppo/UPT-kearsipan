@@ -134,57 +134,90 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate request number
+    // Generate request number with sequential numbering: PR-YYYY-MM-XXX
     const currentDate = new Date();
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     
-    // Get the count of requests created today to generate sequence number
-    const startOfDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    
-    const todayRequestsCount = await prisma.purchaseRequest.count({
-      where: {
-        createdAt: {
-          gte: startOfDay,
-          lt: endOfDay,
-        },
-      },
-    });
-    
-    const sequence = String(todayRequestsCount + 1).padStart(3, '0');
-    const requestNumber = `PR-${year}-${month}-${sequence}`;
+    let purchaseRequest;
+    let attempts = 0;
+    const maxAttempts = 5;
 
-    const purchaseRequest = await prisma.purchaseRequest.create({
-      data: {
-        requestNumber,
-        itemName: validatedData.itemName,
-        quantity: validatedData.quantity,
-        unit: validatedData.unit,
-        reason: validatedData.reason,
-        notes: validatedData.notes,
-        requestedById: session.user.id,
-        itemId: validatedData.itemId,
-      },
-      include: {
-        requestedBy: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
+    while (attempts < maxAttempts) {
+      try {
+        // Get the latest request number for current year-month to determine next sequence
+        const latestRequest = await prisma.purchaseRequest.findFirst({
+          where: {
+            requestNumber: {
+              startsWith: `PR-${year}-${month}-`,
+            },
           },
-        },
-        item: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            stock: true,
+          orderBy: {
+            requestNumber: 'desc',
           },
-        },
-      },
-    });
+        });
+
+        let nextSequence = 1;
+        if (latestRequest) {
+          // Extract sequence number from the latest request number
+          const latestSequence = latestRequest.requestNumber.split('-')[3];
+          nextSequence = parseInt(latestSequence) + 1;
+        }
+
+        const sequenceNumber = String(nextSequence).padStart(3, '0');
+        const requestNumber = `PR-${year}-${month}-${sequenceNumber}`;
+
+        purchaseRequest = await prisma.purchaseRequest.create({
+          data: {
+            requestNumber,
+            itemName: validatedData.itemName,
+            quantity: validatedData.quantity,
+            unit: validatedData.unit,
+            reason: validatedData.reason,
+            notes: validatedData.notes,
+            requestedById: session.user.id,
+            itemId: validatedData.itemId,
+          },
+          include: {
+            requestedBy: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+              },
+            },
+            item: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                stock: true,
+              },
+            },
+          },
+        });
+
+        // If successful, break out of retry loop
+        break;
+      } catch (dbError: any) {
+        // If it's a unique constraint error, retry with new sequence number
+        if (dbError.code === 'P2002' && dbError.meta?.target?.includes('requestNumber')) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            throw new Error('Unable to generate unique request number after multiple attempts');
+          }
+          // Add small delay to reduce race condition likelihood
+          await new Promise(resolve => setTimeout(resolve, 50));
+          continue;
+        }
+        // If it's a different error, throw it
+        throw dbError;
+      }
+    }
+
+    if (!purchaseRequest) {
+      throw new Error('Failed to create purchase request');
+    }
 
     return NextResponse.json(purchaseRequest, { status: 201 });
   } catch (error) {
