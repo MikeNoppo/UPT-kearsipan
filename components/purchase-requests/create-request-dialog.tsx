@@ -26,9 +26,7 @@ interface InventoryItem {
   stock: number
 }
 
-interface CreateRequestDialogProps {
-  onRequestCreated: () => void
-}
+interface CreateRequestDialogProps { onRequestCreated: () => void }
 
 export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogProps) {
   const { toast } = useToast()
@@ -36,6 +34,7 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
   const [submitting, setSubmitting] = useState(false)
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
   const [isCustomItem, setIsCustomItem] = useState(false)
+  // Legacy single item (fallback) + new multi-items state
   const [newRequest, setNewRequest] = useState({
     itemId: undefined as string | undefined,
     itemName: "",
@@ -43,6 +42,10 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
     unit: "",
     reason: "",
   })
+  type DraftItem = { tempId: string; itemId?: string; itemName: string; quantity: number; unit: string }
+  const [items, setItems] = useState<DraftItem[]>([])
+  const [draftItem, setDraftItem] = useState<DraftItem | null>(null)
+  const startNewDraft = () => setDraftItem({ tempId: crypto.randomUUID(), itemName: "", quantity: 0, unit: "", itemId: undefined })
 
   // Mengambil daftar inventaris untuk dropdown
   const fetchInventoryItems = async () => {
@@ -91,15 +94,19 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
     if (!open) {
       setNewRequest({ itemId: undefined, itemName: "", quantity: 0, unit: "", reason: "" })
       setIsCustomItem(false)
+      setItems([])
+      setDraftItem(null)
     }
   }
 
   // Menambah permintaan pembelian baru
   const handleAddRequest = async () => {
-    if (!newRequest.itemName || !newRequest.quantity || !newRequest.unit || !newRequest.reason) {
+    // Now only multi-item mode is allowed
+    const hasMulti = items.length > 0
+    if (!newRequest.reason || !hasMulti) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Isi alasan dan tambahkan minimal satu barang.",
         variant: "destructive",
       })
       return
@@ -107,12 +114,17 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
 
     try {
       setSubmitting(true)
+      const payload = {
+        reason: newRequest.reason,
+        notes: undefined,
+        items: items.map(i => ({ itemName: i.itemName, quantity: i.quantity, unit: i.unit, itemId: i.itemId }))
+      }
       const response = await fetch('/api/purchase-requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newRequest),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -120,8 +132,10 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
         throw new Error(errorData.error || 'Failed to create purchase request')
       }
 
-      setNewRequest({ itemId: undefined, itemName: "", quantity: 0, unit: "", reason: "" })
-      setIsCustomItem(false)
+  setNewRequest({ itemId: undefined, itemName: "", quantity: 0, unit: "", reason: "" })
+  setIsCustomItem(false)
+  setItems([])
+  setDraftItem(null)
       setIsOpen(false)
       onRequestCreated()
       
@@ -154,64 +168,8 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
           <DialogTitle>Buat Permintaan Pembelian</DialogTitle>
           <DialogDescription>Ajukan permintaan pembelian barang baru</DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="itemSelection">Pilih Barang</Label>
-            <Select onValueChange={handleInventorySelection}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih dari inventaris atau item baru" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="custom">+ Item Baru (Ketik Manual)</SelectItem>
-                {inventoryItems.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} - {item.category} (Stok: {item.stock} {item.unit})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {isCustomItem && (
-            <div className="grid gap-2">
-              <Label htmlFor="itemName">Nama Barang Baru</Label>
-              <Input
-                id="itemName"
-                value={newRequest.itemName}
-                onChange={(e) => setNewRequest({ ...newRequest, itemName: e.target.value })}
-                placeholder="Masukkan nama barang baru"
-              />
-            </div>
-          )}
-          
-          {!isCustomItem && newRequest.itemName && (
-            <div className="grid gap-2">
-              <Label>Barang Terpilih</Label>
-              <Input value={newRequest.itemName} disabled />
-            </div>
-          )}
-
-          <div className="grid gap-2">
-            <Label htmlFor="quantity">Jumlah</Label>
-            <Input
-              id="quantity"
-              type="number"
-              value={newRequest.quantity}
-              onChange={(e) => setNewRequest({ ...newRequest, quantity: Number.parseInt(e.target.value) || 0 })}
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="unit">Satuan</Label>
-            <Input
-              id="unit"
-              value={newRequest.unit}
-              onChange={(e) => setNewRequest({ ...newRequest, unit: e.target.value })}
-              placeholder="Unit, Rim, Kg, dll"
-              disabled={!isCustomItem && !!newRequest.itemName}
-            />
-          </div>
-          
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
+          {/* Reason (now moved to top since multi-items) */}
           <div className="grid gap-2">
             <Label htmlFor="reason">Alasan Permintaan</Label>
             <Textarea
@@ -221,6 +179,94 @@ export function CreateRequestDialog({ onRequestCreated }: CreateRequestDialogPro
               placeholder="Jelaskan alasan permintaan pembelian"
             />
           </div>
+          <div className="border-t pt-2" />
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Daftar Barang</h4>
+            <Button type="button" size="sm" variant="outline" onClick={() => { startNewDraft(); setIsCustomItem(true) }}>Tambah Barang</Button>
+          </div>
+          {items.length === 0 && !draftItem && (
+            <p className="text-sm text-muted-foreground">Belum ada barang. Tambahkan barang pertama.</p>
+          )}
+          {/* Existing items list */}
+          {items.length > 0 && (
+            <div className="space-y-2">
+              {items.map(it => (
+                <div key={it.tempId} className="flex items-center justify-between rounded-md border p-2 gap-2 bg-muted/30">
+                  <div className="text-sm">
+                    <div className="font-medium">{it.itemName}</div>
+                    <div className="text-xs text-muted-foreground">{it.quantity} {it.unit}</div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={() => { setDraftItem(it); setItems(items.filter(x => x.tempId !== it.tempId)); }}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setItems(items.filter(x => x.tempId !== it.tempId))}>Hapus</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Draft item editor */}
+          {draftItem && (
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="font-medium">{draftItem.itemId ? 'Barang Inventaris' : 'Barang Baru'}</Label>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => { setDraftItem(null); }}>Batal</Button>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Pilih Barang (opsional)</Label>
+                <Select value={draftItem.itemId || (draftItem.itemName ? 'custom' : undefined)} onValueChange={(val) => {
+                  if (val === 'custom') {
+                    setIsCustomItem(true)
+                    setDraftItem({ ...draftItem, itemId: undefined, itemName: '' })
+                  } else {
+                    const selectedItem = inventoryItems.find(i => i.id === val)
+                    if (selectedItem) {
+                      setIsCustomItem(false)
+                      setDraftItem({ ...draftItem, itemId: selectedItem.id, itemName: selectedItem.name, unit: selectedItem.unit })
+                    }
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Pilih atau barang baru" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">+ Item Baru (Ketik Manual)</SelectItem>
+                    {inventoryItems.map(i => (
+                      <SelectItem value={i.id} key={i.id}>{i.name} - {i.category} (Stok: {i.stock} {i.unit})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {(isCustomItem || !draftItem.itemId) && (
+                <div className="grid gap-2">
+                  <Label>Nama Barang</Label>
+                  <Input value={draftItem.itemName} onChange={(e) => setDraftItem({ ...draftItem, itemName: e.target.value })} />
+                </div>
+              )}
+              <div className="grid gap-2">
+                <Label>Jumlah</Label>
+                <Input type="number" value={draftItem.quantity} onChange={(e) => setDraftItem({ ...draftItem, quantity: Number(e.target.value) || 0 })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Satuan</Label>
+                <Input value={draftItem.unit} disabled={!!draftItem.itemId} onChange={(e) => setDraftItem({ ...draftItem, unit: e.target.value })} />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button size="sm" onClick={() => {
+                  if (!draftItem.itemName || draftItem.quantity <= 0 || !draftItem.unit) {
+                    toast({ title: 'Validasi', description: 'Lengkapi data item', variant: 'destructive' })
+                    return
+                  }
+                  setItems([...items, draftItem])
+                  setDraftItem(null)
+                }}>Simpan Item</Button>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t pt-2" />
+          {/* Legacy single-item UI disembunyikan */}
         </div>
         <DialogFooter>
           <Button onClick={handleAddRequest} disabled={submitting}>

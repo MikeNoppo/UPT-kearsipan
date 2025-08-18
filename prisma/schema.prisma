@@ -53,6 +53,7 @@ model InventoryItem {
   receptions        Reception[]
   distributionItems DistributionItem[]
   purchaseRequests  PurchaseRequest[]
+  purchaseRequestItems PurchaseRequestItem[]
 
   @@map("inventory_items")
 }
@@ -96,7 +97,28 @@ model PurchaseRequest {
   item            InventoryItem? @relation(fields: [itemId], references: [id])
   receptions      Reception[] // Relasi ke penerimaan barang
 
+  // Multi-item (transitional): jika menggunakan multi-item, daftar item ada di relasi items.
+  items           PurchaseRequestItem[]
+
   @@map("purchase_requests")
+}
+
+// Item individual dalam satu PurchaseRequest (untuk mendukung banyak barang dalam 1 permintaan)
+model PurchaseRequestItem {
+  id                 String   @id @default(cuid())
+  purchaseRequestId  String
+  itemName           String
+  quantity           Int
+  unit               String
+  itemId             String?          // relasi opsional ke InventoryItem jika dipilih dari inventaris
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  purchaseRequest    PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  item               InventoryItem?  @relation(fields: [itemId], references: [id])
+
+  @@map("purchase_request_items")
 }
 
 model Reception {

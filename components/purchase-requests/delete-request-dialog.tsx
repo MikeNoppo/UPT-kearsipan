@@ -14,6 +14,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface PurchaseRequestItem { id: string; itemName: string; quantity: number; unit: string }
 interface PurchaseRequest {
   id: string
   requestNumber: string
@@ -27,22 +28,10 @@ interface PurchaseRequest {
   reviewDate?: string
   createdAt: string
   updatedAt: string
-  requestedBy: {
-    id: string
-    name: string
-    username: string
-  }
-  reviewedBy?: {
-    id: string
-    name: string
-    username: string
-  }
-  item?: {
-    id: string
-    name: string
-    category: string
-    stock: number
-  }
+  requestedBy: { id: string; name: string; username: string }
+  reviewedBy?: { id: string; name: string; username: string }
+  item?: { id: string; name: string; category: string; stock: number }
+  items?: PurchaseRequestItem[]
 }
 
 interface DeletePurchaseRequestDialogProps {

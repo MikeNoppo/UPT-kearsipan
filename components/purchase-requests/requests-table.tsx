@@ -21,12 +21,13 @@ import { Check, X, Clock, Loader2, Edit, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PurchaseRequestActions } from "./request-actions"
 
+interface PurchaseRequestItem { id: string; itemName: string; quantity: number; unit: string; itemId?: string }
 interface PurchaseRequest {
   id: string
   requestNumber: string
-  itemName: string
-  quantity: number
-  unit: string
+  itemName: string // legacy single item
+  quantity: number // legacy single item
+  unit: string     // legacy single item
   reason: string
   status: "PENDING" | "APPROVED" | "REJECTED" | "RECEIVED" 
   notes?: string
@@ -34,22 +35,10 @@ interface PurchaseRequest {
   reviewDate?: string
   createdAt: string
   updatedAt: string
-  requestedBy: {
-    id: string
-    name: string
-    username: string
-  }
-  reviewedBy?: {
-    id: string
-    name: string
-    username: string
-  }
-  item?: {
-    id: string
-    name: string
-    category: string
-    stock: number
-  }
+  requestedBy: { id: string; name: string; username: string }
+  reviewedBy?: { id: string; name: string; username: string }
+  item?: { id: string; name: string; category: string; stock: number }
+  items?: PurchaseRequestItem[]
 }
 
 interface RequestsTableProps {
@@ -72,7 +61,9 @@ export function RequestsTable({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingRequest, setEditingRequest] = useState<PurchaseRequest | null>(null)
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null)
-
+  const [detailRequest, setDetailRequest] = useState<PurchaseRequest | null>(null)
+  const [editItems, setEditItems] = useState<PurchaseRequestItem[]>([])
+  const [newEditItem, setNewEditItem] = useState<{itemName:string; quantity:number; unit:string}>({itemName:'',quantity:0,unit:''})
 
   // Fungsi untuk menentukan badge status permintaan
   const getStatusBadge = (status: string) => {
@@ -167,6 +158,19 @@ export function RequestsTable({
         unit: editingRequest.unit,
         reason: editingRequest.reason,
       }
+      if (editingRequest.items && editingRequest.items.length > 0) {
+        const original = editingRequest.items
+        const edited = editItems
+        const itemsPayload: any[] = []
+        edited.forEach(it => {
+          const existing = original.find(o => o.id === it.id)
+          if (!existing) itemsPayload.push({ itemName: it.itemName, quantity: it.quantity, unit: it.unit, _action: 'add' })
+          else if (existing.itemName !== it.itemName || existing.quantity !== it.quantity || existing.unit !== it.unit)
+            itemsPayload.push({ id: it.id, itemName: it.itemName, quantity: it.quantity, unit: it.unit, _action: 'update' })
+        })
+        original.forEach(o => { if (!edited.find(e => e.id === o.id)) itemsPayload.push({ id: o.id, itemName: o.itemName, quantity: o.quantity, unit: o.unit, _action: 'delete' }) })
+        if (itemsPayload.length) requestBody.items = itemsPayload
+      }
       
       // Add status if user can edit it (Admin can edit all, Staff can edit own)
       const canEditStatus = userRole === "ADMINISTRATOR" || 
@@ -235,32 +239,36 @@ export function RequestsTable({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-itemName">Nama Barang</Label>
-              <Input
-                id="edit-itemName"
-                value={editingRequest?.itemName || ""}
-                onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, itemName: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-quantity">Jumlah</Label>
-              <Input
-                id="edit-quantity"
-                type="number"
-                value={editingRequest?.quantity || 0}
-                onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, quantity: Number.parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-unit">Satuan</Label>
-              <Input
-                id="edit-unit"
-                value={editingRequest?.unit || ""}
-                onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, unit: e.target.value })}
-                placeholder="Unit, Rim, Kg, dll"
-              />
-            </div>
+            {!(editingRequest?.items && editingRequest.items.length > 0) && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-itemName">Nama Barang</Label>
+                  <Input
+                    id="edit-itemName"
+                    value={editingRequest?.itemName || ""}
+                    onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, itemName: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-quantity">Jumlah</Label>
+                  <Input
+                    id="edit-quantity"
+                    type="number"
+                    value={editingRequest?.quantity || 0}
+                    onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, quantity: Number.parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-unit">Satuan</Label>
+                  <Input
+                    id="edit-unit"
+                    value={editingRequest?.unit || ""}
+                    onChange={(e) => editingRequest && setEditingRequest({ ...editingRequest, unit: e.target.value })}
+                    placeholder="Unit, Rim, Kg, dll"
+                  />
+                </div>
+              </>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="edit-reason">Alasan Permintaan</Label>
               <Textarea
@@ -301,6 +309,30 @@ export function RequestsTable({
               </div>
             )}
           </div>
+          <div className="grid gap-4 py-4">
+            {editingRequest?.items && editingRequest.items.length > 0 && editingRequest.status === 'PENDING' && (
+              <div className="space-y-3">
+                <Label>Barang (Multi)</Label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                  {editItems.map((it, idx) => (
+                    <div key={it.id || idx} className="flex items-center gap-2 text-xs">
+                      <Input value={it.itemName} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], itemName:e.target.value}; setEditItems(cp) }} className="h-7" />
+                      <Input type="number" value={it.quantity} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], quantity:Number(e.target.value)||0}; setEditItems(cp) }} className="w-16 h-7" />
+                      <Input value={it.unit} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], unit:e.target.value}; setEditItems(cp) }} className="w-16 h-7" />
+                      <Button type="button" variant="ghost" size="sm" onClick={()=>setEditItems(editItems.filter((_,i)=>i!==idx))}>✕</Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 items-end">
+                  <Input placeholder="Nama" value={newEditItem.itemName} onChange={(e)=>setNewEditItem({...newEditItem,itemName:e.target.value})} className="h-8" />
+                  <Input type="number" placeholder="Qty" value={newEditItem.quantity} onChange={(e)=>setNewEditItem({...newEditItem,quantity:Number(e.target.value)||0})} className="w-20 h-8" />
+                  <Input placeholder="Unit" value={newEditItem.unit} onChange={(e)=>setNewEditItem({...newEditItem,unit:e.target.value})} className="w-20 h-8" />
+                  <Button type="button" size="sm" onClick={()=>{ if(!newEditItem.itemName || newEditItem.quantity<=0 || !newEditItem.unit){ toast({title:'Validasi', description:'Lengkapi item baru', variant:'destructive'}); return;} setEditItems([...editItems,{ id: crypto.randomUUID(), itemName:newEditItem.itemName, quantity:newEditItem.quantity, unit:newEditItem.unit }]); setNewEditItem({itemName:'',quantity:0,unit:''}) }}>Tambah</Button>
+                </div>
+                <div className="border-b" />
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button onClick={handleEditRequest} disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -324,12 +356,12 @@ export function RequestsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>ID Permintaan</TableHead>
-                <TableHead>Nama Barang</TableHead>
+                <TableHead>Barang</TableHead>
                 <TableHead>Jumlah</TableHead>
                 <TableHead>Pemohon</TableHead>
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-[100px]">Aksi</TableHead>
+                <TableHead className="w-[140px]">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,15 +372,46 @@ export function RequestsTable({
                       {request.requestNumber}
                     </code>
                   </TableCell>
-                  <TableCell className="font-medium">{request.itemName}</TableCell>
+                  <TableCell className="font-medium">
+                    {request.items && request.items.length > 0 ? (
+                      <button
+                        onClick={() => setDetailRequest(request)}
+                        className="text-left hover:underline"
+                        title="Lihat semua barang"
+                      >
+                        <div className="space-y-1">
+                          {request.items.slice(0,2).map(it => (
+                            <div key={it.id} className="text-xs">
+                              • {it.itemName} <span className="text-muted-foreground">({it.quantity} {it.unit})</span>
+                            </div>
+                          ))}
+                          {request.items.length > 2 && (
+                            <div className="text-xs text-muted-foreground">+ {request.items.length - 2} lainnya</div>
+                          )}
+                        </div>
+                      </button>
+                    ) : request.itemName }
+                  </TableCell>
                   <TableCell>
-                    {request.quantity} {request.unit}
+                    {request.items && request.items.length > 0 ? (
+                      <span className="text-sm font-medium">
+                        {request.items.reduce((acc, it) => acc + it.quantity, 0)} item total
+                      </span>
+                    ) : (
+                      <>{request.quantity} {request.unit}</>
+                    )}
                   </TableCell>
                   <TableCell>{request.requestedBy.name}</TableCell>
                   <TableCell>{new Date(request.requestDate).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{getStatusBadge(request.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
+                      {/* Detail button for multi items */}
+                      {request.items && request.items.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={() => setDetailRequest(request)}>
+                          Detail
+                        </Button>
+                      )}
                       {/* Edit button for staff (own requests) and administrators (all requests) */}
                       {(userRole === "ADMINISTRATOR" || 
                         (userRole === "STAFF" && request.requestedBy.id === userId)) && (
@@ -413,6 +476,43 @@ export function RequestsTable({
           </Table>
         </CardContent>
       </Card>
+      {/* Detail Dialog */}
+      <Dialog open={!!detailRequest} onOpenChange={(o)=> !o && setDetailRequest(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detail Permintaan</DialogTitle>
+            <DialogDescription>
+              {detailRequest?.requestNumber} • {detailRequest?.requestedBy.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            <div className="text-sm leading-relaxed">
+              <p><strong>Alasan:</strong> {detailRequest?.reason}</p>
+              <p><strong>Status:</strong> {detailRequest && getStatusBadge(detailRequest.status)}</p>
+            </div>
+            {detailRequest?.items && detailRequest.items.length > 0 ? (
+              <div>
+                <h4 className="font-medium mb-2">Daftar Barang</h4>
+                <div className="space-y-2">
+                  {detailRequest.items.map(it => (
+                    <div key={it.id} className="flex justify-between border rounded-md p-2 text-sm">
+                      <div>
+                        <div className="font-medium">{it.itemName}</div>
+                        <div className="text-xs text-muted-foreground">Qty: {it.quantity} {it.unit}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Hanya 1 item (mode lama).</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={()=>setDetailRequest(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

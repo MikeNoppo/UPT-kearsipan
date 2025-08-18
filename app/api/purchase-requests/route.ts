@@ -4,15 +4,30 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
-// Validation schema for creating purchase request
-const createPurchaseRequestSchema = z.object({
-  itemName: z.string().min(1, 'Item name is required'),
-  quantity: z.number().min(1, 'Quantity must be at least 1'),
-  unit: z.string().min(1, 'Unit is required'),
-  reason: z.string().min(1, 'Reason is required'),
+// Validation schema (legacy single-item OR new multi-items). At least one of itemName or items must be provided.
+const purchaseRequestItemSchema = z.object({
+  itemName: z.string().min(1),
+  quantity: z.number().min(1),
+  unit: z.string().min(1),
   itemId: z.string().optional(),
-  notes: z.string().optional(),
 });
+
+const createPurchaseRequestSchema = z.object({
+  // Legacy fields (single item)
+  itemName: z.string().min(1, 'Item name is required').optional(),
+  quantity: z.number().min(1, 'Quantity must be at least 1').optional(),
+  unit: z.string().min(1, 'Unit is required').optional(),
+  itemId: z.string().optional(),
+  // New multi-items array
+  items: z.array(purchaseRequestItemSchema).optional(),
+  reason: z.string().min(1, 'Reason is required'),
+  notes: z.string().optional(),
+}).refine(data => {
+  // Valid if legacy single-item present OR items array with length
+  const legacyComplete = !!(data.itemName && data.quantity && data.unit);
+  const hasItemsArray = Array.isArray(data.items) && data.items.length > 0;
+  return legacyComplete || hasItemsArray;
+}, { message: 'Provide either single item fields or items[] array with at least one item.' });
 
 // GET endpoint untuk mengambil semua permintaan pembelian
 export async function GET(request: NextRequest) {
@@ -45,12 +60,13 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Filter pencarian teks multi-kolom menggunakan OR condition
+    // Filter pencarian teks: cari di kolom request utama dan juga pada items anak
     if (search) {
       where.OR = [
-        { itemName: { contains: search, mode: 'insensitive' } },
+        { itemName: { contains: search, mode: 'insensitive' } }, // legacy
         { reason: { contains: search, mode: 'insensitive' } },
         { requestedBy: { name: { contains: search, mode: 'insensitive' } } },
+        { items: { some: { itemName: { contains: search, mode: 'insensitive' } } } },
       ];
     }
 
@@ -76,14 +92,12 @@ export async function GET(request: NextRequest) {
               username: true,
             },
           },
-          item: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              stock: true,
-            },
+          item: { // legacy single-item linkage
+            select: { id: true, name: true, category: true, stock: true },
           },
+          items: { // multi items
+            select: { id: true, itemName: true, quantity: true, unit: true, itemId: true }
+          }
         },
       }),
       prisma.purchaseRequest.count({ where }),
@@ -118,19 +132,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = createPurchaseRequestSchema.parse(body);
+  const validatedData = createPurchaseRequestSchema.parse(body);
 
-    // Check if item exists in inventory (if itemId provided)
-    if (validatedData.itemId) {
-      const existingItem = await prisma.inventoryItem.findUnique({
-        where: { id: validatedData.itemId },
-      });
-
-      if (!existingItem) {
-        return NextResponse.json(
-          { error: 'Inventory item not found' },
-          { status: 404 }
-        );
+    // Validate existence of referenced inventory items (single or multi)
+    const inventoryIdsToCheck: string[] = [];
+    if (validatedData.itemId) inventoryIdsToCheck.push(validatedData.itemId);
+    if (validatedData.items) {
+      validatedData.items.forEach(i => { if (i.itemId) inventoryIdsToCheck.push(i.itemId); });
+    }
+    if (inventoryIdsToCheck.length) {
+      const existing = await prisma.inventoryItem.findMany({ where: { id: { in: inventoryIdsToCheck } } });
+      const existingIds = new Set(existing.map(e => e.id));
+      const missing = inventoryIdsToCheck.filter(id => !existingIds.has(id));
+      if (missing.length) {
+        return NextResponse.json({ error: 'Some inventory items not found', missing }, { status: 404 });
       }
     }
 
@@ -170,30 +185,27 @@ export async function POST(request: NextRequest) {
         purchaseRequest = await prisma.purchaseRequest.create({
           data: {
             requestNumber,
-            itemName: validatedData.itemName,
-            quantity: validatedData.quantity,
-            unit: validatedData.unit,
+            // Legacy single-item fields (optional if multi used)
+            itemName: validatedData.itemName ?? '',
+            quantity: validatedData.quantity ?? 0,
+            unit: validatedData.unit ?? '',
             reason: validatedData.reason,
             notes: validatedData.notes,
             requestedById: session.user.id,
             itemId: validatedData.itemId,
+            items: validatedData.items && validatedData.items.length ? {
+              create: validatedData.items.map(it => ({
+                itemName: it.itemName,
+                quantity: it.quantity,
+                unit: it.unit,
+                itemId: it.itemId,
+              }))
+            } : undefined,
           },
           include: {
-            requestedBy: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-              },
-            },
-            item: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-                stock: true,
-              },
-            },
+            requestedBy: { select: { id: true, name: true, username: true } },
+            item: { select: { id: true, name: true, category: true, stock: true } },
+            items: { select: { id: true, itemName: true, quantity: true, unit: true, itemId: true } }
           },
         });
 

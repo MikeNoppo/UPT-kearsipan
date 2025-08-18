@@ -6,13 +6,21 @@ import { z } from 'zod';
 
 // Validation schema for updating purchase request
 const updatePurchaseRequestSchema = z.object({
-  itemName: z.string().min(1, 'Item name is required').optional(),
+  itemName: z.string().min(1, 'Item name is required').optional(), // legacy single-item
   quantity: z.number().min(1, 'Quantity must be at least 1').optional(),
   unit: z.string().min(1, 'Unit is required').optional(),
   reason: z.string().min(1, 'Reason is required').optional(),
   notes: z.string().optional(),
   itemId: z.string().optional(),
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED','RECEIVED']).optional(),
+  items: z.array(z.object({
+    id: z.string().optional(), // existing item id
+    itemName: z.string().min(1),
+    quantity: z.number().min(1),
+    unit: z.string().min(1),
+    itemId: z.string().optional(),
+    _action: z.enum(['add','update','delete']).optional(),
+  })).optional(),
 });
 
 // GET /api/purchase-requests/[id] - Get specific purchase request
@@ -44,15 +52,8 @@ export async function GET(
             username: true,
           },
         },
-        item: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            stock: true,
-            unit: true,
-          },
-        },
+  item: { select: { id: true, name: true, category: true, stock: true, unit: true } },
+  items: { select: { id: true, itemName: true, quantity: true, unit: true, itemId: true } },
       },
     });
 
@@ -100,6 +101,7 @@ export async function PATCH(
 
     const existingRequest = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
+      include: { items: true },
     });
 
     if (!existingRequest) {
@@ -158,33 +160,59 @@ export async function PATCH(
       }
     }
 
-    const updatedRequest = await prisma.purchaseRequest.update({
+    // Items modification only allowed while PENDING
+    if (validatedData.items && validatedData.items.length && existingRequest.status === 'PENDING') {
+      const adds = validatedData.items.filter(i => i._action === 'add' || (!i.id && !i._action));
+      const updates = validatedData.items.filter(i => i.id && (i._action === 'update' || !i._action));
+      const deletes = validatedData.items.filter(i => i.id && i._action === 'delete');
+
+      const inventoryIds = [...adds, ...updates].map(i => i.itemId).filter((v): v is string => !!v);
+      if (inventoryIds.length) {
+        const found = await prisma.inventoryItem.findMany({ where: { id: { in: inventoryIds } } });
+        const foundSet = new Set(found.map(f => f.id));
+        const missing = inventoryIds.filter(id => !foundSet.has(id));
+        if (missing.length) {
+          return NextResponse.json({ error: 'Some inventory items not found', missing }, { status: 404 });
+        }
+      }
+
+      await prisma.$transaction(async (tx) => {
+        if (Object.keys(updateData).length) {
+          await tx.purchaseRequest.update({ where: { id: params.id }, data: updateData });
+        }
+        for (const a of adds) {
+          await tx.purchaseRequestItem.create({ data: {
+            purchaseRequestId: params.id,
+            itemName: a.itemName,
+            quantity: a.quantity,
+            unit: a.unit,
+            itemId: a.itemId,
+          }});
+        }
+        for (const u of updates) {
+          await tx.purchaseRequestItem.update({ where: { id: u.id! }, data: {
+            itemName: u.itemName,
+            quantity: u.quantity,
+            unit: u.unit,
+            itemId: u.itemId,
+          }});
+        }
+        for (const d of deletes) {
+          await tx.purchaseRequestItem.delete({ where: { id: d.id! } });
+        }
+      });
+    } else if (Object.keys(updateData).length) {
+      await prisma.purchaseRequest.update({ where: { id: params.id }, data: updateData });
+    }
+
+    const updatedRequest = await prisma.purchaseRequest.findUnique({
       where: { id: params.id },
-      data: updateData,
       include: {
-        requestedBy: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-          },
-        },
-        reviewedBy: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-          },
-        },
-        item: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            stock: true,
-          },
-        },
-      },
+        requestedBy: { select: { id: true, name: true, username: true } },
+        reviewedBy: { select: { id: true, name: true, username: true } },
+        item: { select: { id: true, name: true, category: true, stock: true } },
+        items: { select: { id: true, itemName: true, quantity: true, unit: true, itemId: true } },
+      }
     });
 
     return NextResponse.json(updatedRequest);
