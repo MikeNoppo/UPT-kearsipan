@@ -195,6 +195,8 @@ export function RequestsTable({
 
       setEditingRequest(null)
       setIsEditDialogOpen(false)
+  setEditItems([])
+  setNewEditItem({ itemName: '', quantity: 0, unit: '' })
       onRequestUpdated()
       
       toast({
@@ -287,7 +289,7 @@ export function RequestsTable({
                 <Select
                   value={editingRequest.status}
                   onValueChange={(value: "PENDING" | "APPROVED" | "REJECTED") => 
-                    setEditingRequest({ ...editingRequest, status: value })
+                    setEditingRequest({ ...editingRequest, status: value as "PENDING" | "APPROVED" | "REJECTED" | "RECEIVED" })
                   }
                 >
                   <SelectTrigger>
@@ -314,6 +316,9 @@ export function RequestsTable({
               <div className="space-y-3">
                 <Label>Barang (Multi)</Label>
                 <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                  {editItems.length === 0 && (
+                    <div className="text-xs text-muted-foreground">Daftar item kosong. Tambah item baru di bawah.</div>
+                  )}
                   {editItems.map((it, idx) => (
                     <div key={it.id || idx} className="flex items-center gap-2 text-xs">
                       <Input value={it.itemName} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], itemName:e.target.value}; setEditItems(cp) }} className="h-7" />
@@ -420,6 +425,7 @@ export function RequestsTable({
                           size="sm"
                           onClick={() => {
                             setEditingRequest({...request})
+                            setEditItems(request.items || [])
                             setIsEditDialogOpen(true)
                           }}
                         >
@@ -486,9 +492,11 @@ export function RequestsTable({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="text-sm leading-relaxed">
-              <p><strong>Alasan:</strong> {detailRequest?.reason}</p>
-              <p><strong>Status:</strong> {detailRequest && getStatusBadge(detailRequest.status)}</p>
+            <div className="text-sm leading-relaxed space-y-2">
+              <div><strong>Alasan:</strong> {detailRequest?.reason}</div>
+              <div className="flex items-center gap-2">
+                <strong>Status:</strong> {detailRequest && getStatusBadge(detailRequest.status)}
+              </div>
             </div>
             {detailRequest?.items && detailRequest.items.length > 0 ? (
               <div>
