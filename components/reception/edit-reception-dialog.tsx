@@ -61,6 +61,7 @@ interface Reception {
     stock: number
     unit: string
   }
+  items?: { id: string; itemName: string; requestedQuantity: number; receivedQuantity: number; unit: string; itemId?: string }[]
 }
 
 interface EditReceptionDialogProps {
@@ -79,10 +80,11 @@ export function EditReceptionDialog({
   const { toast } = useToast();
   const [isSubmitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    receivedQuantity: 0,
+    receivedQuantity: 0, // single legacy
     receiptDate: "",
     status: "COMPLETE" as "COMPLETE" | "PARTIAL" | "DIFFERENT",
     notes: "",
+    items: [] as { id: string; itemName: string; requestedQuantity: number; receivedQuantity: number; unit: string; itemId?: string }[],
   });
 
   // Update form data when reception changes
@@ -93,6 +95,7 @@ export function EditReceptionDialog({
         receiptDate: new Date(reception.receiptDate).toISOString().split('T')[0],
         status: reception.status,
         notes: reception.notes || "",
+        items: reception.items ? reception.items.map(it=>({ ...it })) : [],
       });
     }
   }, [reception]);
@@ -107,6 +110,7 @@ export function EditReceptionDialog({
           receiptDate: "",
           status: "COMPLETE",
           notes: "",
+          items: [],
         });
       }
     };
@@ -138,13 +142,18 @@ export function EditReceptionDialog({
   const handleSubmit = async () => {
     if (!reception) return;
 
-    if (formData.receivedQuantity <= 0) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Jumlah diterima harus lebih dari 0.",
-        variant: "destructive",
-      });
-      return;
+    const isMulti = reception.items && reception.items.length > 0;
+    if (isMulti) {
+      if (formData.items.some(i=> i.receivedQuantity < 0)) {
+        toast({ title: 'Validasi Gagal', description: 'Jumlah diterima tidak boleh negatif.', variant: 'destructive' }); return;
+      }
+      if (formData.items.every(i=> i.receivedQuantity === 0)) {
+        toast({ title: 'Validasi Gagal', description: 'Minimal satu item memiliki jumlah diterima > 0.', variant: 'destructive' }); return;
+      }
+    } else {
+      if (formData.receivedQuantity <= 0) {
+        toast({ title: 'Validasi Gagal', description: 'Jumlah diterima harus lebih dari 0.', variant: 'destructive' }); return;
+      }
     }
 
     setSubmitting(true);
@@ -154,14 +163,19 @@ export function EditReceptionDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: reception.id,
-          ...formData,
+          status: formData.status,
+          notes: formData.notes || undefined,
           receiptDate: new Date(formData.receiptDate).toISOString(),
+          ...(reception.items && reception.items.length ? { items: formData.items.map(i=>({ id: i.id, receivedQuantity: i.receivedQuantity })) } : {
+            receivedQuantity: formData.receivedQuantity,
+          })
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal memperbarui penerimaan barang.");
+        const detail = errorData.details && errorData.details[0]?.message ? `: ${errorData.details[0].message}` : ''
+        throw new Error((errorData.error || "Gagal memperbarui penerimaan barang") + detail);
       }
 
       toast({
@@ -191,7 +205,7 @@ export function EditReceptionDialog({
   return (
     <Dialog key={reception.id} open={open} onOpenChange={handleOpenChange} modal={true}>
       <DialogContent 
-        className="max-w-2xl" 
+        className="max-w-3xl max-h-[85vh] flex flex-col" 
         onInteractOutside={(e) => {
           if (isSubmitting) {
             e.preventDefault();
@@ -219,7 +233,8 @@ export function EditReceptionDialog({
             {reception.purchaseRequest?.requestNumber || "item ini"}.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="flex-1 overflow-y-auto pr-2">
+          <div className="grid gap-4 py-4">
           {/* Read-only fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -233,47 +248,47 @@ export function EditReceptionDialog({
             <div className="grid gap-2">
               <Label>Nama Barang</Label>
               <Input
-                value={reception.itemName}
+                value={reception.items && reception.items.length ? reception.items.map(i=>i.itemName).join(', ') : reception.itemName}
                 disabled
                 className="bg-muted"
               />
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="grid gap-2">
-              <Label>Jumlah Diminta</Label>
-              <Input
-                value={`${reception.requestedQuantity} ${reception.unit}`}
-                disabled
-                className="bg-muted"
-              />
+          {reception.items && reception.items.length ? (
+            <div className="space-y-2">
+              <Label>Item Penerimaan</Label>
+              <div className="border rounded-md divide-y max-h-72 overflow-auto">
+                {formData.items.map((it, idx)=>(
+                  <div key={it.id} className="grid grid-cols-12 gap-2 p-2 text-sm items-center">
+                    <div className="col-span-4 font-medium truncate" title={it.itemName}>{it.itemName}</div>
+                    <div className="col-span-2 text-muted-foreground">{it.requestedQuantity}</div>
+                    <div className="col-span-3">
+                      <Input type="number" className="h-8" value={it.receivedQuantity} onChange={e=>{
+                        const val = Number(e.target.value)||0; setFormData(prev=>({...prev, items: prev.items.map((x,i)=> i===idx?{...x, receivedQuantity: val}:x)}))
+                      }} disabled={isSubmitting} />
+                    </div>
+                    <div className="col-span-2 text-muted-foreground">{it.unit}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">Kolom kedua: diminta, kolom ketiga: diterima (editable).</div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="receivedQuantity">Jumlah Diterima *</Label>
-              <Input
-                id="receivedQuantity"
-                type="number"
-                value={formData.receivedQuantity}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    receivedQuantity: Number.parseInt(e.target.value) || 0,
-                  })
-                }
-                required
-                disabled={isSubmitting}
-              />
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label>Jumlah Diminta</Label>
+                <Input value={`${reception.requestedQuantity} ${reception.unit}`} disabled className="bg-muted" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="receivedQuantity">Jumlah Diterima *</Label>
+                <Input id="receivedQuantity" type="number" value={formData.receivedQuantity} onChange={e=> setFormData({...formData, receivedQuantity: Number.parseInt(e.target.value) || 0})} required disabled={isSubmitting} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Satuan</Label>
+                <Input value={reception.unit} disabled className="bg-muted" />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label>Satuan</Label>
-              <Input
-                value={reception.unit}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -328,7 +343,14 @@ export function EditReceptionDialog({
             <div className="text-sm">
               <div className="font-medium mb-2">Informasi Tambahan:</div>
               <div className="space-y-1 text-muted-foreground">
-                <div>• Persentase diterima: {reception.requestedQuantity > 0 ? Math.round((formData.receivedQuantity / reception.requestedQuantity) * 100) : 0}%</div>
+                <div>• Persentase diterima: {(() => {
+                  if (reception.items && reception.items.length) {
+                    const totalReq = reception.items.reduce((s,i)=> s + i.requestedQuantity,0)
+                    const totalRec = formData.items.reduce((s,i)=> s + i.receivedQuantity,0)
+                    return totalReq>0 ? Math.round((totalRec/totalReq)*100):0
+                  }
+                  return reception.requestedQuantity > 0 ? Math.round((formData.receivedQuantity / reception.requestedQuantity) * 100) : 0
+                })()}%</div>
                 {reception.item && (
                   <div>• Stok inventory saat ini: {reception.item.stock} {reception.item.unit}</div>
                 )}
@@ -338,8 +360,9 @@ export function EditReceptionDialog({
               </div>
             </div>
           </div>
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="shrink-0 mt-4">
           <Button
             type="button"
             variant="outline"

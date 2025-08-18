@@ -32,6 +32,9 @@ interface PurchaseRequestOption {
   quantity: number;
   unit: string;
   itemId?: string | null;
+  items?: { id:string; itemName:string; quantity:number; unit:string; itemId?:string | null }[];
+  isMulti?: boolean;
+  totalQuantity?: number;
   requestedBy: {
     id: string;
     name: string;
@@ -172,6 +175,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
     status: "COMPLETE" as "COMPLETE" | "PARTIAL" | "DIFFERENT",
     purchaseRequestId: "",
     itemId: undefined as string | undefined,
+    items: [] as {purchaseRequestItemId?:string; itemName:string; requestedQuantity:number; receivedQuantity:number; unit:string; itemId?:string}[],
   });
 
   // Function untuk fetch purchase requests yang tersedia
@@ -199,18 +203,40 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
   // Handler saat memilih purchase request
   const handlePurchaseRequestSelect = (requestId: string) => {
     const selected = purchaseRequests.find((pr) => pr.id === requestId);
-    if (selected) {
-      setNewReception((prev) => ({
+    if (!selected) return;
+    if (selected.items && selected.items.length > 0) {
+      // multi-item path
+      setNewReception(prev => ({
+        ...prev,
+        purchaseRequestId: requestId,
+        itemName: '',
+        requestedQuantity: 0,
+        receivedQuantity: 0,
+        unit: '',
+        itemId: undefined,
+  items: selected.items!.map(it => ({
+          purchaseRequestItemId: it.id,
+          itemName: it.itemName,
+          requestedQuantity: it.quantity,
+          receivedQuantity: it.quantity,
+          unit: it.unit,
+          itemId: it.itemId || undefined,
+        })),
+      }))
+      setShowAddInventory(false)
+    } else {
+      // legacy single item
+      setNewReception(prev => ({
         ...prev,
         purchaseRequestId: requestId,
         itemName: selected.itemName,
         requestedQuantity: selected.quantity,
-        receivedQuantity: selected.quantity, // Default samakan dengan yang diminta
+        receivedQuantity: selected.quantity,
         unit: selected.unit,
         itemId: selected.itemId || undefined,
-      }));
-      // Jika itemId belum ada, tampilkan tombol tambah inventory
-      setShowAddInventory(!selected.itemId);
+        items: [],
+      }))
+      setShowAddInventory(!selected.itemId)
     }
   };
 
@@ -254,37 +280,67 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
   // Handler untuk submit form penerimaan
   const handleAddReception = async () => {
     // 4. Validasi sebelum submit
-    if (!newReception.itemId) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Barang harus terhubung dengan inventory sebelum disimpan.",
-        variant: "destructive",
-      });
-      return;
+    const isMulti = newReception.items.length > 0
+    if (!isMulti) {
+      if (!newReception.itemId) {
+        toast({ title: 'Validasi Gagal', description: 'Barang harus terhubung dengan inventory sebelum disimpan.', variant: 'destructive' }); return;
+      }
+    } else {
+      // validasi setiap item multi
+      if (newReception.items.some(i => i.receivedQuantity < 0)) {
+        toast({ title: 'Validasi Gagal', description: 'Jumlah diterima tidak boleh negatif.', variant: 'destructive' }); return;
+      }
+      if (newReception.items.every(i => i.receivedQuantity === 0)) {
+        toast({ title: 'Validasi Gagal', description: 'Minimal satu item memiliki jumlah diterima > 0.', variant: 'destructive' }); return;
+      }
     }
-    if (!newReception.receiptDate || newReception.receivedQuantity <= 0) {
+    // Untuk multi-item kita tidak wajibkan receiptDate karena backend default now().
+    if (!isMulti) {
+      if (!newReception.receiptDate || newReception.receivedQuantity <= 0) {
         toast({
-            title: "Validasi Gagal",
-            description: "Tanggal diterima dan jumlah diterima wajib diisi.",
-            variant: "destructive",
-        })
+          title: 'Validasi Gagal',
+          description: 'Tanggal diterima dan jumlah diterima wajib diisi.',
+          variant: 'destructive'
+        });
         return;
+      }
     }
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/reception", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newReception,
-          receiptDate: new Date(newReception.receiptDate).toISOString(),
-        }),
+      const isMultiNow = newReception.items.length > 0;
+      const payload: any = {
+        status: newReception.status,
+        notes: newReception.notes || undefined,
+      };
+      if (newReception.purchaseRequestId) payload.purchaseRequestId = newReception.purchaseRequestId;
+      if (isMultiNow) {
+        payload.items = newReception.items.map(i => ({
+          purchaseRequestItemId: i.purchaseRequestItemId,
+          itemName: i.itemName,
+          requestedQuantity: i.requestedQuantity,
+          receivedQuantity: i.receivedQuantity,
+          unit: i.unit,
+          itemId: i.itemId,
+        }));
+      } else {
+        payload.itemId = newReception.itemId;
+        payload.itemName = newReception.itemName;
+        payload.requestedQuantity = newReception.requestedQuantity;
+        payload.receivedQuantity = newReception.receivedQuantity;
+        payload.unit = newReception.unit;
+        payload.receiptDate = newReception.receiptDate ? new Date(newReception.receiptDate).toISOString() : undefined;
+      }
+      const response = await fetch('/api/reception', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal mencatat penerimaan barang.");
+        const detail = errorData.details && errorData.details[0]?.message ? `: ${errorData.details[0].message}` : ''
+        throw new Error((errorData.error || 'Gagal mencatat penerimaan barang') + detail);
       }
       
       // 5. Reset form dan tutup dialog
@@ -315,7 +371,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
   };
   
   const resetForm = () => {
-    setNewReception({
+  setNewReception({
         itemName: "",
         requestedQuantity: 0,
         receivedQuantity: 0,
@@ -325,6 +381,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
         status: "COMPLETE",
         purchaseRequestId: "",
         itemId: undefined,
+    items: [],
     });
     setShowAddInventory(false);
   }
@@ -350,27 +407,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
             Catat Penerimaan
           </Button>
         </DialogTrigger>
-        <DialogContent 
-          className="max-w-2xl"
-          onInteractOutside={(e) => {
-            if (isSubmitting) {
-              e.preventDefault();
-              return;
-            }
-            setTimeout(() => {
-              handleOpenChange(false);
-            }, 0);
-          }}
-          onEscapeKeyDown={(e) => {
-            if (isSubmitting) {
-              e.preventDefault();
-              return;
-            }
-            setTimeout(() => {
-              handleOpenChange(false);
-            }, 0);
-          }}
-        >
+  <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Catat Penerimaan Barang</DialogTitle>
             <DialogDescription>
@@ -398,13 +435,12 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                   {purchaseRequests.map((pr) => (
                     <SelectItem key={pr.id} value={pr.id}>
                       <div className="flex flex-col">
-                        <span className="font-medium">{pr.itemName} ({pr.quantity} {pr.unit})</span>
-                        <span className="text-sm text-muted-foreground">
-                          {pr.requestNumber}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Diminta oleh: {pr.requestedBy.name} (@{pr.requestedBy.username})
-                        </span>
+                        {pr.items && pr.items.length > 0 ? (
+                          <span className="font-medium">{pr.requestNumber} • {pr.items.length} barang (Total {pr.items.reduce((a,i)=>a+i.quantity,0)})</span>
+                        ) : (
+                          <span className="font-medium">{pr.itemName} ({pr.quantity} {pr.unit})</span>
+                        )}
+                        <span className="text-xs text-muted-foreground">Diminta oleh: {pr.requestedBy.name} (@{pr.requestedBy.username})</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -414,7 +450,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
             
             {newReception.purchaseRequestId && (
               <>
-                {showAddInventory && (
+                {showAddInventory && newReception.items.length === 0 && (
                   <div className="p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded-md">
                       <p className="font-semibold text-yellow-800">Barang Belum Terdaftar</p>
                       <p className="text-sm text-yellow-700">
@@ -429,33 +465,22 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                       </Button>
                   </div>
                 )}
-
-                {!showAddInventory && newReception.itemId && (
+                {!showAddInventory && newReception.itemId && newReception.items.length === 0 && (
                      <div className="p-3 border-l-4 border-green-500 bg-green-50 rounded-md">
                         <p className="font-semibold text-green-800">
                             Barang sudah terhubung ke inventory.
                         </p>
                      </div>
                 )}
-                
-                <div className="grid grid-cols-2 gap-4">
+                {newReception.items.length === 0 && (
+                <div className="grid grid-cols-1 gap-4">
                   <div className="grid gap-2">
                     <Label>Nama Barang</Label>
                     <Input value={newReception.itemName} disabled />
                   </div>
-                   <div className="grid gap-2">
-                    <Label htmlFor="receiptDate">Tanggal Diterima *</Label>
-                    <Input
-                      id="receiptDate"
-                      type="date"
-                      value={newReception.receiptDate}
-                      onChange={(e) => setNewReception({ ...newReception, receiptDate: e.target.value })}
-                      required
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
+                </div> )}
 
+                {newReception.items.length === 0 && (
                 <div className="grid grid-cols-4 gap-4">
                   <div className="grid gap-2">
                     <Label>Jumlah Diminta</Label>
@@ -500,7 +525,46 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                </div> )}
+
+                {newReception.items.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="border rounded p-3 max-h-72 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left">
+                            <th className="py-1">Nama</th>
+                            <th className="py-1 w-20">Diminta</th>
+                            <th className="py-1 w-24">Diterima</th>
+                            <th className="py-1 w-20">Unit</th>
+                            <th className="py-1 w-32">Inventory</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {newReception.items.map((it, idx) => (
+                            <tr key={it.purchaseRequestItemId || idx} className="border-t">
+                              <td className="py-1 pr-2">{it.itemName}</td>
+                              <td className="py-1 pr-2">{it.requestedQuantity}</td>
+                              <td className="py-1 pr-2">
+                                <Input type="number" className="h-8" value={it.receivedQuantity} onChange={e=>{
+                                  const val = Number(e.target.value)||0; setNewReception(prev=>({...prev, items: prev.items.map((x,i)=> i===idx?{...x, receivedQuantity: val}:x)}))
+                                }} />
+                              </td>
+                              <td className="py-1 pr-2">{it.unit}</td>
+                              <td className="py-1 pr-2 text-xs">
+                                {it.itemId ? 'Terhubung' : <Button type="button" variant="outline" size="sm" onClick={()=>{
+                                  // Trigger add inventory dialog for this row
+                                  setShowAddInventory(true);
+                                  setNewReception(prev=>({...prev, itemName: it.itemName, unit: it.unit}))
+                                }}>Tambah</Button>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid gap-2">
                   <Label htmlFor="notes">Catatan</Label>
@@ -518,7 +582,7 @@ export function CreateReceptionDialog({ onReceptionCreated }: CreateReceptionDia
           <DialogFooter>
             <Button
               onClick={handleAddReception}
-              disabled={isSubmitting || !newReception.itemId}
+              disabled={isSubmitting || (newReception.items.length === 0 && !newReception.itemId)}
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Simpan Penerimaan

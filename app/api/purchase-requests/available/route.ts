@@ -46,13 +46,21 @@ export async function GET(request: NextRequest) {
             unit: true,
           },
         },
+          items: {
+            select: { id: true, itemName: true, quantity: true, unit: true, itemId: true }
+          }
       },
     });
+      const transformed = availablePurchaseRequests.map(pr => ({
+        ...pr,
+        isMulti: pr.items && pr.items.length > 0,
+        totalQuantity: pr.items && pr.items.length > 0 ? pr.items.reduce((a,i)=>a+i.quantity,0) : pr.quantity,
+      }))
 
-    return NextResponse.json({
-      purchaseRequests: availablePurchaseRequests,
-      total: availablePurchaseRequests.length,
-    });
+      return NextResponse.json({
+        purchaseRequests: transformed,
+        total: transformed.length,
+      });
   } catch (error) {
     console.error('Error fetching available purchase requests:', error);
     return NextResponse.json(

@@ -30,6 +30,14 @@ interface Reception {
     name: string
     username: string
   }
+  // Multi-item support
+  items?: {
+    id: string
+    itemName: string
+    requestedQuantity: number
+    receivedQuantity: number
+    unit: string
+  }[]
   requestedBy?: {
     id: string
     name: string
@@ -355,8 +363,19 @@ export function ReceptionClient() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{reception.itemName}</div>
-                      {reception.item && (
+                      <div className="font-medium">
+                        {reception.items && reception.items.length > 0 ? (
+                          <>
+                            {reception.items.length === 1 ? reception.items[0].itemName : `${reception.items.length} Barang`}
+                            <div className="text-xs text-muted-foreground truncate max-w-[220px]">
+                              {reception.items.length > 1 && reception.items.map((i)=>i.itemName).join(', ')}
+                            </div>
+                          </>
+                        ) : (
+                          reception.itemName
+                        )}
+                      </div>
+                      {reception.item && (!reception.items || reception.items.length === 0) && (
                         <div className="text-sm text-muted-foreground">
                           {reception.item.category} - Stock: {reception.item.stock}
                         </div>
@@ -364,11 +383,11 @@ export function ReceptionClient() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {reception.requestedQuantity} {reception.unit}
+                    {reception.requestedQuantity}{reception.unit ? ` ${reception.unit}` : ''}
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      {reception.receivedQuantity} {reception.unit}
+                      {reception.receivedQuantity}{reception.unit ? ` ${reception.unit}` : ''}
                     </div>
                     {reception.requestedQuantity > 0 && (
                       <div className="text-sm text-muted-foreground">
