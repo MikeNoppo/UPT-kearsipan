@@ -7,8 +7,6 @@
     "dev": "next dev --turbo",
     "lint": "next lint",
     "start": "next start",
-  "prebuild": "pnpm approve-builds @prisma/client prisma esbuild @prisma/engines || echo 'approve-builds skipped'",
-  "approve-builds": "pnpm approve-builds @prisma/client prisma esbuild @prisma/engines",
     "seed": "npx tsx prisma/seed/seed.ts",
     "seed:test": "npx tsx prisma/seed/seed-test.ts",
     "postinstall": "npx prisma generate --no-engine"
