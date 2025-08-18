@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,7 +63,15 @@ export function RequestsTable({
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null)
   const [detailRequest, setDetailRequest] = useState<PurchaseRequest | null>(null)
   const [editItems, setEditItems] = useState<PurchaseRequestItem[]>([])
-  const [newEditItem, setNewEditItem] = useState<{itemName:string; quantity:number; unit:string}>({itemName:'',quantity:0,unit:''})
+  const [newEditItem, setNewEditItem] = useState<{itemName:string; quantity:number; unit:string; itemId?:string}>({itemName:'',quantity:0,unit:'', itemId: undefined})
+  const [inventoryItems, setInventoryItems] = useState<{id:string; name:string; category:string; unit:string; stock:number}[]>([])
+  const [isCustomNew, setIsCustomNew] = useState(false)
+  const fetchInventoryItems = async () => {
+    try {
+      const res = await fetch('/api/inventory')
+      if(res.ok){ const data = await res.json(); setInventoryItems(data) }
+    } catch {}
+  }
 
   // Fungsi untuk menentukan badge status permintaan
   const getStatusBadge = (status: string) => {
@@ -150,6 +158,15 @@ export function RequestsTable({
 
     try {
       setSubmitting(true)
+
+      // Validasi: jika mode multi-item (request sudah punya items), wajib minimal 1 item tersisa
+      if (editingRequest.items && editingRequest.items.length > 0) {
+        if (editItems.length === 0) {
+          toast({ title: 'Validasi', description: 'Minimal 1 barang harus ada dalam permintaan.', variant: 'destructive' })
+          setSubmitting(false)
+          return
+        }
+      }
       
       // Prepare request body - include status if it's being changed
       const requestBody: any = {
@@ -164,9 +181,9 @@ export function RequestsTable({
         const itemsPayload: any[] = []
         edited.forEach(it => {
           const existing = original.find(o => o.id === it.id)
-          if (!existing) itemsPayload.push({ itemName: it.itemName, quantity: it.quantity, unit: it.unit, _action: 'add' })
-          else if (existing.itemName !== it.itemName || existing.quantity !== it.quantity || existing.unit !== it.unit)
-            itemsPayload.push({ id: it.id, itemName: it.itemName, quantity: it.quantity, unit: it.unit, _action: 'update' })
+          if (!existing) itemsPayload.push({ itemName: it.itemName, quantity: it.quantity, unit: it.unit, itemId: it.itemId, _action: 'add' })
+          else if (existing.itemName !== it.itemName || existing.quantity !== it.quantity || existing.unit !== it.unit || existing.itemId !== it.itemId)
+            itemsPayload.push({ id: it.id, itemName: it.itemName, quantity: it.quantity, unit: it.unit, itemId: it.itemId, _action: 'update' })
         })
         original.forEach(o => { if (!edited.find(e => e.id === o.id)) itemsPayload.push({ id: o.id, itemName: o.itemName, quantity: o.quantity, unit: o.unit, _action: 'delete' }) })
         if (itemsPayload.length) requestBody.items = itemsPayload
@@ -196,7 +213,8 @@ export function RequestsTable({
       setEditingRequest(null)
       setIsEditDialogOpen(false)
   setEditItems([])
-  setNewEditItem({ itemName: '', quantity: 0, unit: '' })
+  setNewEditItem({ itemName: '', quantity: 0, unit: '', itemId: undefined })
+  setIsCustomNew(false)
       onRequestUpdated()
       
       toast({
@@ -240,6 +258,7 @@ export function RequestsTable({
               )}
             </DialogDescription>
           </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto pr-1">
           <div className="grid gap-4 py-4">
             {!(editingRequest?.items && editingRequest.items.length > 0) && (
               <>
@@ -321,22 +340,33 @@ export function RequestsTable({
                   )}
                   {editItems.map((it, idx) => (
                     <div key={it.id || idx} className="flex items-center gap-2 text-xs">
-                      <Input value={it.itemName} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], itemName:e.target.value}; setEditItems(cp) }} className="h-7" />
+                      <Input value={it.itemName} disabled={!!it.itemId} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], itemName:e.target.value}; setEditItems(cp) }} className="h-7" />
                       <Input type="number" value={it.quantity} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], quantity:Number(e.target.value)||0}; setEditItems(cp) }} className="w-16 h-7" />
-                      <Input value={it.unit} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], unit:e.target.value}; setEditItems(cp) }} className="w-16 h-7" />
+                      <Input value={it.unit} disabled={!!it.itemId} onChange={(e)=>{ const cp=[...editItems]; cp[idx]={...cp[idx], unit:e.target.value}; setEditItems(cp) }} className="w-16 h-7" />
                       <Button type="button" variant="ghost" size="sm" onClick={()=>setEditItems(editItems.filter((_,i)=>i!==idx))}>✕</Button>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 items-end">
-                  <Input placeholder="Nama" value={newEditItem.itemName} onChange={(e)=>setNewEditItem({...newEditItem,itemName:e.target.value})} className="h-8" />
+                <div className="flex flex-wrap gap-2 items-end">
+                  <Select value={newEditItem.itemId || (isCustomNew ? 'custom' : undefined)} onValueChange={(val)=>{
+                    if(val==='custom'){ setIsCustomNew(true); setNewEditItem({ itemName:'', quantity:newEditItem.quantity, unit:'', itemId: undefined }) }
+                    else { const sel = inventoryItems.find(i=>i.id===val); if(sel){ setIsCustomNew(false); setNewEditItem({ itemName: sel.name, quantity:newEditItem.quantity, unit: sel.unit, itemId: sel.id }) } }
+                  }}>
+                    <SelectTrigger className="h-8 w-48"><SelectValue placeholder="Inventaris / Baru" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="custom">+ Item Baru</SelectItem>
+                      {inventoryItems.map(i=> <SelectItem key={i.id} value={i.id}>{i.name} (Stok: {i.stock} {i.unit})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input placeholder="Nama" value={newEditItem.itemName} disabled={!isCustomNew && !!newEditItem.itemId} onChange={(e)=>setNewEditItem({...newEditItem,itemName:e.target.value})} className="h-8" />
                   <Input type="number" placeholder="Qty" value={newEditItem.quantity} onChange={(e)=>setNewEditItem({...newEditItem,quantity:Number(e.target.value)||0})} className="w-20 h-8" />
-                  <Input placeholder="Unit" value={newEditItem.unit} onChange={(e)=>setNewEditItem({...newEditItem,unit:e.target.value})} className="w-20 h-8" />
-                  <Button type="button" size="sm" onClick={()=>{ if(!newEditItem.itemName || newEditItem.quantity<=0 || !newEditItem.unit){ toast({title:'Validasi', description:'Lengkapi item baru', variant:'destructive'}); return;} setEditItems([...editItems,{ id: crypto.randomUUID(), itemName:newEditItem.itemName, quantity:newEditItem.quantity, unit:newEditItem.unit }]); setNewEditItem({itemName:'',quantity:0,unit:''}) }}>Tambah</Button>
+                  <Input placeholder="Unit" value={newEditItem.unit} disabled={!isCustomNew && !!newEditItem.itemId} onChange={(e)=>setNewEditItem({...newEditItem,unit:e.target.value})} className="w-20 h-8" />
+                  <Button type="button" size="sm" onClick={()=>{ if(!newEditItem.itemName || newEditItem.quantity<=0 || !newEditItem.unit){ toast({title:'Validasi', description:'Lengkapi item baru', variant:'destructive'}); return;} setEditItems([...editItems,{ id: crypto.randomUUID(), itemName:newEditItem.itemName, quantity:newEditItem.quantity, unit:newEditItem.unit, itemId: newEditItem.itemId }]); setNewEditItem({itemName:'',quantity:0,unit:'', itemId: undefined}); setIsCustomNew(false) }}>Tambah</Button>
                 </div>
                 <div className="border-b" />
               </div>
             )}
+          </div>
           </div>
           <DialogFooter>
             <Button onClick={handleEditRequest} disabled={submitting}>
@@ -426,6 +456,7 @@ export function RequestsTable({
                           onClick={() => {
                             setEditingRequest({...request})
                             setEditItems(request.items || [])
+                            fetchInventoryItems()
                             setIsEditDialogOpen(true)
                           }}
                         >
