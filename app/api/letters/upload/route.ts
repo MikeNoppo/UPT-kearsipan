@@ -20,13 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Save file and get metadata
-    const fileData = await saveUploadedFile(file)
+  // Save file (to Supabase storage) and get metadata
+  const fileData = await saveUploadedFile(file)
 
-    return NextResponse.json({
-      success: true,
-      ...fileData
-    })
+  return NextResponse.json({ success: true, ...fileData })
 
   } catch (error) {
     console.error("Upload error:", error)

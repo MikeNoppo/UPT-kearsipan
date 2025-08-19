@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { readFile } from "fs/promises"
-import { existsSync } from "fs"
 import path from "path"
+import { supabase, LETTERS_BUCKET } from "@/lib/supabase"
 
 // GET /api/letters/[id]/preview - Preview dokumen surat dalam browser
 export async function GET(
@@ -44,19 +43,27 @@ export async function GET(
       return NextResponse.json({ error: "No document available" }, { status: 404 })
     }
 
-    // Construct file path - remove leading slash if present
-    const cleanPath = letter.documentPath.startsWith('/') 
-      ? letter.documentPath.substring(1) 
-      : letter.documentPath
-    const filePath = path.join('./public', cleanPath)
-
-    // Check if file exists
-    if (!existsSync(filePath)) {
-      return NextResponse.json({ error: "File not found on server" }, { status: 404 })
+    // Derive storage path similar to download route
+    let storagePath: string
+    if (letter.documentPath.includes('/storage/v1/object/public/')) {
+      const afterPublic = letter.documentPath.split('/storage/v1/object/public/')[1]
+      const parts = afterPublic.split('/')
+      parts.shift() // bucket
+      storagePath = parts.join('/')
+    } else {
+      storagePath = letter.documentPath.replace(/^https?:\/\/[^/]+\//, '')
+      storagePath = storagePath.replace(/^files\//, '')
+      if (!storagePath.startsWith('letters/')) {
+        storagePath = `letters/${path.basename(letter.documentPath)}`
+      }
     }
 
-    // Read file
-    const fileBuffer = await readFile(filePath)
+    const { data, error } = await supabase.storage.from(LETTERS_BUCKET).download(storagePath)
+    if (error || !data) {
+      return NextResponse.json({ error: "File not found in storage" }, { status: 404 })
+    }
+    const fileArrayBuffer = await data.arrayBuffer()
+    const fileBuffer = Buffer.from(fileArrayBuffer)
 
     // Determine MIME type for proper browser handling
     let contentType = letter.documentType || 'application/octet-stream'
